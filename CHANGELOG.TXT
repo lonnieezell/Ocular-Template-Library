@@ -1,0 +1,28 @@
+//---------------------------------------------------------------
+// OCULAR TEMPLATE LIBRARY
+// by Lonnie Ezell (http://igniteyourcode.com/ocular)
+//
+// version: 2.0.3
+//---------------------------------------------------------------
+
+Version 2.0b3
+Additions:
+	- Thanks to Deep Arora on the CI Forums for getting this setup to allow for use of 
+	  the template parser within Ocular.
+	- Added 'OCU_ajax_layout' to settings. The render() function checks if it's in an 
+	  AJAX call, if so, it overrides the layout with the one in the settings.
+
+Changes: 
+	- changed OCU_use_themes to OCU_use_mobile_themes for clarity
+Bugs:
+	- Fixed messages to check for the right sessions class...
+
+
+Version 2.0b2
+Additions: 
+	- now adds $active_controller, $active_view and $active_function to the data array for use in views.
+
+Bugs: 
+	- _check_layout now works with custom layout names.
+	- render() no longer resets the view name if a custom one has been set.
+	- fixed block() to actually use the $this->blocks value.
