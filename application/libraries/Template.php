@@ -685,7 +685,9 @@ class Template {
 
 function check_menu($item='')
 	{
-		if (strtolower($this->ci->router->fetch_class()) == strtolower($item))
+		$ci =& get_instance();
+	
+		if (strtolower($ci->router->fetch_class()) == strtolower($item))
 		{
 			return 'class="current"';
 		}
@@ -697,7 +699,9 @@ function check_menu($item='')
 	
 	function check_sub_menu($item='')
 	{
-		if (strtolower($this->ci->router->fetch_method()) == strtolower($item))
+		$ci =& get_instance();
+	
+		if (strtolower($ci->router->fetch_method()) == strtolower($item))
 		{
 			return 'class="current"';
 		}
