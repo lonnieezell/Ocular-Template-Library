@@ -680,8 +680,10 @@ class Template {
 	}
 	
 	//---------------------------------------------------------------
-	
-	function check_menu($item='')
+
+}
+
+function check_menu($item='')
 	{
 		if (strtolower($this->ci->router->fetch_class()) == strtolower($item))
 		{
@@ -704,8 +706,6 @@ class Template {
 	}
 	
 	//---------------------------------------------------------------
-
-}
 
 /* End of file Template.php */
 /* Location: ./application/libraries/Template.php */
