@@ -2,10 +2,10 @@
 // OCULAR TEMPLATE LIBRARY
 // by Lonnie Ezell (http://igniteyourcode.com/ocular)
 //
-// version: 2.1
+// version: 2.0.4
 //---------------------------------------------------------------
 
-Version 2.1
+Version 2.0.4
 Changes:
 	- removed handlers to simplify and increase performance
 	- stopped using the language file since it's additional overhead and CI doesn't for it's errors.
