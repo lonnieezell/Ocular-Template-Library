@@ -144,10 +144,11 @@ class Template {
 	 * view to use based on the current controller/method.
 	 * 
 	 * @access public
-	 * @param string $layout. (default: '')
+	 * @param 	string 	$layout. (default: '')
+	 * @param 	boolean $cache_me	Whether or not to cache the layout
 	 * @return void
 	 */
-	public function render($layout='') 
+	public function render($layout='', $cache_me=false) 
 	{	
 		$this->_mark('Template_Render_start');
 		
