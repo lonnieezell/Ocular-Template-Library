@@ -4,7 +4,7 @@
  *
  * @package Ocular Template Library
  * @author Lonnie Ezell
- * @version 2.0.3
+ * @version 2.1
  */
 
 /*
@@ -167,34 +167,5 @@ $config['OCU_message_template'] =<<<EOD
 	</div>
 EOD;
 
-/*
-|--------------------------------------------------------------------
-| EXTENSION HANDLERS
-|--------------------------------------------------------------------
-| Extension handlers allow Ocular to render multiple types of 
-| files, not just html (with a .php extension) as would the standard
-| $this->load->view() function.
-|
-| The OCU_handlers config setting is an array of file extensions,
-| followed by the name of the handler. In this case, the handler name
-| MUST match the name of a helper (named: handler_helper.php) and
-| the function to be called to parse the script.
-|
-| For example, using the Markdown helper that ships with Ocular,
-| the syntax is: 
-|
-| $config['OCU_handlers'] = array(
-|		'md'	=> 'Markdown',
-|	);
-|
-| which loads the Markdown_helper.php file and processes it by calling
-| Markdown($content);
-|
-| NOTE: do not include an ending ".php" extension.
-|
-*/
-$config['OCU_handlers'] = array(
-		'md'	=> 'Markdown',
-	);
 
 ?>

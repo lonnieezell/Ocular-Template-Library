@@ -7,7 +7,7 @@
  * 
  * @author Lonnie Ezell
  * @package Ocular Layout Library
- * @version 2.0.3
+ * @version 2.1.0
  */
 class Template {
 
@@ -44,7 +44,7 @@ class Template {
 	 * no parsing. Used by the yield() and block() 
 	 * 
 	 * @var mixed
-	 * @access protected
+	 * @access public
 	 */
 	public $use_ci_parser = false;
 	
@@ -89,6 +89,12 @@ class Template {
 	protected $active_theme = '';
 	
 	/**
+	 * Stores the default theme from the config file
+	 * for a slight performance increase.
+	 */
+	 protected  $default_theme = '';
+	
+	/**
 	 * Holds a simple array to store the status Message
 	 * that gest displayed using the message() function.
 	 *
@@ -115,16 +121,15 @@ class Template {
 		$this->_mark('Template_constructor_start');
 		
 		$this->ci->config->load('template');
-		$this->ci->lang->load('template');
-		$this->ci->load->helper('language');
 		
 		// Store some of our defaults
 		$this->layout = $this->ci->config->item('OCU_layout_folder') . $this->ci->config->item('OCU_default_layout');
+		$this->default_theme = $this->ci->config->item('OCU_default_theme');
 				
 		// Show the profiler?
 		if ($this->ci->config->item('OCU_profile')) $this->ci->output->enable_profiler(true);
 		
-		log_message('debug', lang('OCU_loaded'));
+		log_message('debug', 'Ocular library loaded');
 		
 		$this->_mark('Template_constructor_end');
 	}
@@ -191,7 +196,7 @@ class Template {
 				if ($this->ci->load->view($this->_check_layout($layout, true), $this->data) === FALSE)
 				{
 					// Layout not found, so spit out an error.
-					show_error(lang('OCU_404_error') . $layout);
+					show_error('Unable to load the requested file: ' . $layout);
 				}
 			}
 		} else 
@@ -200,7 +205,7 @@ class Template {
 			if ($this->ci->load->view($layout, $this->data) === FALSE)
 			{
 				// Show an error here, since we're overriding CI's loader.
-				show_error(lang('OCU_404_error') . $layout);
+				show_error('Unable to load the requested file: '. $layout);
 			}
 		}
 				
@@ -225,77 +230,7 @@ class Template {
 	{ 
 		$this->_mark('Template_Yield_start');
 		
-		$file = '';				// Stores the view name we're attempting to find in the filesystem.
-		$theme_folder = '';		// Stores the theme folder to look in (or blank if none)
-	
-		//
-		// See if a file exists matching the $current_view variable (any extension).
-		//
-		
-		// Modular Separation fix...
-		// First, check the current module
-		$file = APPPATH .'/views/'. $this->current_view;
-		$file = glob($file . '.*');
-		
-		// Start by checking if there's a theme available.
-		if (count($file) == 0 && !empty($this->active_theme))
-		{
-			// A theme has been specified. First try to locate the file under
-			// the active theme. If that doesn't work, fall back to the default theme.
-			$file = APPPATH . 'views/' . $this->active_theme . $this->current_view;
-			$file = glob($file . '.*');
-			$theme_folder = $this->active_theme;
-			
-			if (count($file) == 0)
-			{
-				// Pull it from the default theme.
-				$file = APPPATH . 'views/' . $this->ci->config->item('OCU_default_theme') .'/'. $this->current_view;
-				$file = glob($file . '.*');
-				$theme_folder = $this->ci->config->item('OCU_default_theme') .'/';
-			}
-		} else if (count($file) == 0) {
-			// We're not using themes, so default to the views folder
-			$file = APPPATH . 'views/' . $this->current_view;
-			$file = glob($file . '.*');
-		}
-		
-		if (count($file) == 0)
-		{
-			// No usable view found. Log the error,
-			log_message('debug', lang('OCU_no_view') . $this->current_view);
-			// Flush the output buffer
-			ob_clean();
-			// and show the page not found error.
-			show_404();
-		} else 
-		{ 
-			// Note, if more than one file matches, we just use the first.
-			$ext = substr($file[0], strrpos($file[0], '.') + 1);
-			
-			// Grab the content of our view file			
-			if ($this->use_ci_parser === TRUE)
-			{
-				$this->ci->load->library('parser');
-				$content = $this->ci->parser->parse($theme_folder . $this->current_view . '.' . $ext, $this->data, true);	
-			} else 
-			{
-				log_message('debug', 'Template trying to yield: ' . $theme_folder . $this->current_view . '.' . $ext);
-				$content = $this->ci->load->view($theme_folder . $this->current_view . '.' . $ext, $this->data, true);
-			}
-			
-			// Use our handler config array to see if we need to do anything
-			// with this file.
-			$handlers = $this->ci->config->item('OCU_handlers');
-			
-			if (isset($handlers[$ext]) && !empty($handlers[$ext]))
-			{
-				// Load the associated helper
-				$this->ci->load->helper($handlers[$ext]);
-				$content = @$handlers[$ext]($content);
-			}
-			
-			echo $content;
-		}
+		$this->_render_view($this->current_view);
 		
 		$this->_mark('Template_Yield_end');
 	}
@@ -323,7 +258,7 @@ class Template {
 		
 		if (empty($block_name)) 
 		{
-			log_message('debug', lang('OCU_no_block'));
+			log_message('debug', '[Ocular] No block name provided.');
 			return;
 		}
 
@@ -337,46 +272,11 @@ class Template {
 
 		if (empty($block_name)) 
 		{
-			log_message('debug', lang('OCU_no_default_block') . $default_view);
+			log_message('debug', 'Ocular was unable to find the default block: ' . $default_view);
 			return;
 		}
-	
-		//
-		// Time to actually render the block.
-		//
-		
-		// Start by checking if there's a theme available
-		if (!empty($this->active_theme))
-		{
-			// A theme has been specified. First, try to locate the file under
-			// the active_theme. If that doesn't work, fall back to the default.
-			if ($this->use_ci_parser === TRUE) {
-				$this->ci->load->library('parser');
-				$block_content = $this->ci->parser->parse($this->_check_view($block_name), $this->data, true);
-			} else 
-			{
-				$block_content = $this->ci->load->view($this->_check_view($block_name), $this->data, true);
-			}
 
-
-			if (empty($block_content))
-			{
-				// Oops. Not found in the active_theme. Try the default.
-				$block_content = $this->ci->load->view($this->_check_view($block_name, true), $this->data, true);
-			}
-		} else 
-		{
-			if ($this->use_ci_parser === TRUE)
-			{
-				$this->ci->load->library('parser');
-				$block_content = $this->ci->parser->parse($block_name, $this->data, true);
-			} else 
-			{
-				$block_content = $this->ci->load->view($block_name, $this->data, true);
-			}
-		}
-		
-		echo $block_content;
+		$this->_render_view($block_name);
 		
 		$this->_mark('Template_Block_end');
 	}
@@ -629,7 +529,7 @@ class Template {
 			// If we still don't have a theme, set it to the default.
 			if (empty($this->active_theme))
 			{
-				$this->active_theme = $this->ci->config->item('OCU_default_theme') . '/';
+				$this->active_theme = $this->default_theme . '/';
 			}
 		}
 		
@@ -648,16 +548,69 @@ class Template {
 		if (!empty($name))
 		{
 			// Is there a theme assigned? If we're using themes, 
-			// it should already be set by the time we get here.
-			if (!empty($this->active_theme))
-			{
-				return ($use_default === TRUE) ? $this->ci->config->item('OCU_default_theme') . '/' . $name : $this->active_theme . $name;
-			}
+			// it should already be set by the time we get here.				
+			return ($use_default === TRUE) ? $this->default_theme . '/' . $name : $this->active_theme . $name;
 		}
 		
 		return $name;
 	}
 	
+	//---------------------------------------------------------------
+	
+	/**
+	 * Handles the actual rendering of a view, by checking
+	 * for theme features and parsing methods.
+	 *
+	 * Used by the yield and block methods.
+	 *
+	 * @access	private
+	 * @return	boolean
+	 */
+	private function _render_view($view_name='')
+	{
+		if (empty($view_name))
+		{
+			show_error('[Ocular] No view to render.');
+			return false;
+		}
+	
+		// Start by checking if there's a theme available
+		if (!empty($this->active_theme))
+		{
+			// A theme has been specified. First, try to locate the file under
+			// the active_theme. If that doesn't work, fall back to the default.
+			if ($this->use_ci_parser === TRUE) 
+			{
+				$this->ci->load->library('parser');
+				$content = $this->ci->parser->parse($this->_check_view($view_name), $this->data, true);
+			} else 
+			{
+				$content = $this->ci->load->view($this->_check_view($view_name), $this->data, true);
+			}
+
+
+			if (empty($content))
+			{
+				// Oops. Not found in the active_theme. Try the default.
+				$content = $this->ci->load->view($this->_check_view($view_name, true), $this->data, true);
+			}
+		} else 
+		{
+			if ($this->use_ci_parser === TRUE)
+			{
+				$this->ci->load->library('parser');
+				$content = $this->ci->parser->parse($view_name, $this->data, true);
+			} else 
+			{
+				$content = $this->ci->load->view($view_name, $this->data, true);
+			}
+		}
+		
+		echo $content;
+		
+		return true;
+	}
+		
 	//---------------------------------------------------------------
 	
 	private function _check_layout($name='', $use_default=FALSE) 
@@ -674,7 +627,7 @@ class Template {
 			// if should already be set by the time we're here.
 			if (!empty($this->active_theme))
 			{
-				return ($use_default === TRUE) ? $this->ci->config->item('OCU_default_theme') . '/' . $name : $this->active_theme . $name;
+				return ($use_default === TRUE) ? $this->default_theme . '/' . $name : $this->active_theme . $name;
 			}
 		}
 	}
