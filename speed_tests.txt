@@ -3,6 +3,6 @@
 Name								RPS			RPS(w/xcache)
 --------------------------------------------------------------
 Baseline (Straight CI)				111.73		507.83
-Autoload Ocular						 92.85		358.55
-Controller Load						 98.25		423.32
+Autoload Ocular					 92.85		358.55
+Controller Load					 98.25		423.32
 FrontController Load				 91.45		366.60
