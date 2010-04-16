@@ -7,7 +7,7 @@
  * 
  * @author Lonnie Ezell
  * @package Ocular Layout Library
- * @version 2.1.0
+ * @version 2.0.4
  */
 class Template {
 
