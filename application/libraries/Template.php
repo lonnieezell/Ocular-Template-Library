@@ -161,7 +161,7 @@ class Template {
 		// Make sure we're using the correct layout.
 		// If none is specified, use the default. 
 		// Set in constructor.
-		$layout = empty($layout) ? $this->layout : $layout;
+		$layout = empty($layout) ? $this->layout : $this->ci->config->item('OCU_layout_folder') . $layout;
 		
 		$this->_set_theme();
 	
