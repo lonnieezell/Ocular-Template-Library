@@ -607,8 +607,15 @@ class Template {
 			}
 		}
 		
-		echo $content;
 		
+		if (empty($content))
+		{
+			ob_clean();
+			show_404($view_name);
+			return false;
+		}
+		
+		echo $content;
 		return true;
 	}
 		
