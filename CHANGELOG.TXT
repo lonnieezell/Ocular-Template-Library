@@ -2,8 +2,15 @@
 // OCULAR TEMPLATE LIBRARY
 // by Lonnie Ezell (http://igniteyourcode.com/ocular)
 //
-// version: 2.0.4
+// version: 2.1.0
 //---------------------------------------------------------------
+
+Version 2.1.0
+Changes:
+Additions: 
+	- Added view caching.
+Bugs:
+	- now correctly returns a 404 error when the 'current_view' doesn't exist.
 
 Version 2.0.4
 Changes:

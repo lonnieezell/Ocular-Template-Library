@@ -167,5 +167,46 @@ $config['OCU_message_template'] =<<<EOD
 	</div>
 EOD;
 
+/*
+|--------------------------------------------------------------------
+| CACHE View
+|--------------------------------------------------------------------
+| Whether or not to cache the current view called by the yield() method.
+|
+*/
+$config['OCU_cache_view'] = false;
+
+/*
+|--------------------------------------------------------------------
+| CACHE Layout
+|--------------------------------------------------------------------
+| Whether or not to cache the current layout called by the render() 
+| method. Even if the layout is cached, the primary view is not, unless
+| specified by the OCU_cache_view setting above.
+|
+*/
+$config['OCU_cache_layout'] = false;
+
+/*
+|--------------------------------------------------------------------
+| CACHE View Expiration
+|--------------------------------------------------------------------
+| The default time until a cached view expires, in seconds.
+|
+| Defaults to 15 minutes (900 seconds).
+|
+*/
+$config['OCU_cache_view_expires'] = 900;
+
+/*
+|--------------------------------------------------------------------
+| CACHE Layout Expiration
+|--------------------------------------------------------------------
+| The default time until a cached layout expires, in seconds.
+|
+| Defaults to one hour (3600 seconds)
+*/
+$config['OCU_cache_layout_expires'] = 3600;
+
 
 ?>
