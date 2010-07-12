@@ -318,10 +318,9 @@ class Template {
 			return '{yield}';
 		} else 
 		{
-			$this->_render_view($this->current_view, $this->cache_view);
+			return $this->_render_view($this->current_view, $this->cache_view);
 		}
 		
-		$this->_mark('Template_Yield_end');
 	}
 	
 	//---------------------------------------------------------------
@@ -724,8 +723,7 @@ class Template {
 			$this->write_cache($content);
 		} 
 		
-		echo $content;
-		return true;
+		return $content;
 	}
 		
 	//---------------------------------------------------------------
