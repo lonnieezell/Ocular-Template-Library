@@ -779,7 +779,7 @@ class Template {
 		$cache_file = $this->cache_path . $this->cache_id .'.html';
 		
 		// Cache file exists?
-		if (!file_exists($cache_file)) return false;
+		if (!is_file($cache_file)) return false;
 		
 		// Can we get the time of the file?
 		if (!($mtime = filemtime($cache_file))) return false;
