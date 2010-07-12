@@ -96,12 +96,61 @@ class Template {
 	
 	/**
 	 * Holds a simple array to store the status Message
-	 * that gest displayed using the message() function.
+	 * that gets displayed using the message() function.
 	 *
 	 * @var array
 	 * @access protected
 	 */
-	protected $messages = array();
+	public $message;
+	
+	/**
+	 * Do we cache views?
+	 *
+	 * @access public
+	 * @var boolean
+	 */
+	public $cache_view;
+	
+	/**
+	 * Do we cache the layout?
+	 *
+	 * @var boolean
+	 * @access public
+	 */
+	public $cache_layout;
+	
+	/**
+	 * Default time to cache the view for.
+	 *
+	 * @var int
+	 * @access public
+	 */
+	public $cache_view_expires;
+	
+	/**
+	 * Default time to cache the layout for.
+	 *
+	 * @var int
+	 * @access public
+	 */
+	public $cache_layout_expires;
+	
+	/**
+	 * Where to store cache files.
+	 * This uses the global CI setting.
+	 *
+	 * @var string
+	 * @access protected
+	 */
+	protected $cache_path;
+	
+	/**
+	 * An array of cache_id's and true/false
+	 * about whether a view has been cached or not.
+	 */
+	 protected $cached = array();
+	
+	
 	
 	//---------------------------------------------------------------
 	
@@ -125,6 +174,12 @@ class Template {
 		// Store some of our defaults
 		$this->layout = $this->ci->config->item('OCU_layout_folder') . $this->ci->config->item('OCU_default_layout');
 		$this->default_theme = $this->ci->config->item('OCU_default_theme');
+		
+		$this->cache_path = $this->ci->config->item('cache_path');
+		$this->cache_view = $this->ci->config->item('OCU_cache_view');
+		$this->cache_layout = $this->ci->config->item('OCU_cache_layout');
+		$this->cache_view_expires = $this->ci->config->item('OCU_cache_view_expires');
+		$this->cache_layout_expires = $this->ci->config->item('OCU_cache_layout_expires');
 				
 		// Show the profiler?
 		if ($this->ci->config->item('OCU_profile')) $this->ci->output->enable_profiler(true);
@@ -164,14 +219,6 @@ class Template {
 		$layout = empty($layout) ? $this->layout : $this->ci->config->item('OCU_layout_folder') . $layout;
 		
 		$this->_set_theme();
-	
-		// Grab out current view name, based on controller/method
-		// which routes to views/controller/method. Ignore extension
-		// for now.
-		if (empty($this->current_view))
-		{
-			$this->current_view = $this->ci->router->class . '/' . $this->ci->router->method;
-		}
 		
 		// Is it in an AJAX call? If so, override the layout
 		if ($this->is_ajax())
@@ -181,34 +228,71 @@ class Template {
 			$this->ci->output->set_header("Cache-Control: post-check=0, pre-check=0");
 			$this->ci->output->set_header("Pragma: no-cache"); 
 		}
+		
+		// Grab our current view name, based on controller/method
+		// which routes to views/controller/method.
+		if (empty($this->current_view))
+		{
+			$this->current_view = $this->ci->router->class . '/' . $this->ci->router->method;
+		}
 				
 		//
 		// Time to render the layout
 		//
 		
-		// Start by checking if there's a theme available
-		if (!empty($this->active_theme))
+		// The cache_id is based on the layout name + the current url so that 
+		// variances between pages will be taken into affect.
+		$this->cache_id = md5($layout . $this->ci->uri->uri_string);
+		
+		$output = '';
+		
+		if ($this->cache_layout && $this->is_cached('layout'))
 		{ 
-			// A theme has been specified. First try to locate the file under
-			// the active theme. If that doesn't work, fall back to the default theme.
-			if ($this->ci->load->view($this->_check_layout($layout), $this->data) === FALSE)
-			{ 
-				// Oops. Not found in active theme. Try the default.
-				if ($this->ci->load->view($this->_check_layout($layout, true), $this->data) === FALSE)
-				{
-					// Layout not found, so spit out an error.
-					show_error('Unable to load the requested file: ' . $layout);
-				}
-			}
+			// Show the cache
+			$output = $this->get_cache();
 		} else 
 		{	
-			// We're not using themes, so default to the 'views' folder
-			if ($this->ci->load->view($layout, $this->data) === FALSE)
-			{
-				// Show an error here, since we're overriding CI's loader.
-				show_error('Unable to load the requested file: '. $layout);
+			// Start by checking if there's a theme available
+			if (!empty($this->active_theme))
+			{ 
+				// A theme has been specified. First try to locate the file under
+				// the active theme. If that doesn't work, fall back to the default theme.
+				$output = $this->ci->load->view($this->_check_layout($layout), $this->data, true);
+				if (empty($output))
+				{ 
+					// Oops. Not found in active theme. Try the default.
+					$output = $this->ci->load->view($this->_check_layout($layout, true), $this->data, true);
+					if (empty($output))
+					{
+						// Layout not found, so spit out an error.
+						show_error('Unable to load the requested file: ' . $layout);
+					} 
+				}
+				
+			} else 
+			{	
+				// We're not using themes, so default to the 'views' folder
+				$output = $this->ci->load->view($layout, $this->data, true);
+				if (empty($output))
+				{
+					// Show an error here, since we're overriding CI's loader.
+					show_error('Unable to load the requested file: '. $layout);
+				}
+				
 			}
+			
+			// Cache the output buffer if required.
+			if ($this->cache_layout && !$this->is_cached())
+			{
+				$this->write_cache($output);
+			} 
+			
 		}
+		
+		$output = str_replace('{yield}', $this->yield(true), $output);	
+		
+		global $OUT;
+		$OUT->set_output($output);
 				
 		$this->_mark('Template_Render_end');
 	}
@@ -219,19 +303,23 @@ class Template {
 	 * Renders the current page. 
 	 *
 	 * Uses a view based on the controller/function being run. (See __constructor).
-	 * The view file does not have to be a standard html or php file. Instead, any
-	 * type of file can be used, and processed with helpers. These are dealth
-	 * with via helpers, and set in the OCU_handlers config setting. (See the
-	 * Template.php config file for more details.)
 	 * 
 	 * @access public
 	 * @return void
 	 */
-	public function yield() 
+	public function yield($bypass=false) 
 	{ 
 		$this->_mark('Template_Yield_start');
 		
-		$this->_render_view($this->current_view);
+		// If we've cached the layout, we don't return anything except the 
+		// yield function itself.
+		if ($bypass === false)
+		{
+			return '{yield}';
+		} else 
+		{
+			$this->_render_view($this->current_view, $this->cache_view);
+		}
 		
 		$this->_mark('Template_Yield_end');
 	}
@@ -253,7 +341,7 @@ class Template {
 	 * @param string $default_view. (default: '')
 	 * @return void
 	 */
-	public function block($block_name='', $default_view='') 
+	public function block($block_name='', $default_view='', $cache_me = false, $cache_expires=900) 
 	{
 		$this->_mark('Template_Block_start');
 		
@@ -277,7 +365,7 @@ class Template {
 			return;
 		}
 
-		$this->_render_view($block_name);
+		$this->_render_view($block_name, $cache_me, $cache_expires);
 		
 		$this->_mark('Template_Block_end');
 	}
@@ -390,7 +478,7 @@ class Template {
 	{
 		if (!empty($message))
 		{
-			if (class_exists('session'))
+			if (class_exists('CI_Session'))
 			{
 				$this->ci->session->set_flashdata('message', $type.'::'.$message);
 			}
@@ -488,7 +576,7 @@ class Template {
 	 */
 	private function _set_theme() 
 	{
-		if ($this->ci->config->item('OCU_use_themes') === TRUE)
+		if ($this->ci->config->item('OCU_use_mobile_themes') === TRUE)
 		{
 			// Load our user_agent library
 			$this->ci->load->library('user_agent');
@@ -567,16 +655,31 @@ class Template {
 	 * @access	private
 	 * @return	boolean
 	 */
-	private function _render_view($view_name='')
+	private function _render_view($view_name='', $cache_me=false)
 	{
+	
 		if (empty($view_name))
 		{
 			show_error('[Ocular] No view to render.');
 			return false;
 		}
+				
+		$content = '';
+		
+		if ($cache_me && !$this->is_ajax())
+		{
+			// To discourage conflicts, use the view_name and the current uri
+			// As the cache_id.
+			$this->cache_id = md5($view_name . $this->ci->uri->uri_string);
+			
+			if ($this->is_cached())
+			{
+				$content = $this->get_cache();
+			}
+		}
 	
 		// Start by checking if there's a theme available
-		if (!empty($this->active_theme))
+		if (empty($content) && !empty($this->active_theme))
 		{
 			// A theme has been specified. First, try to locate the file under
 			// the active_theme. If that doesn't work, fall back to the default.
@@ -595,7 +698,7 @@ class Template {
 				// Oops. Not found in the active_theme. Try the default.
 				$content = $this->ci->load->view($this->_check_view($view_name, true), $this->data, true);
 			}
-		} else 
+		} else if (empty($content) && empty($this->active_theme))
 		{
 			if ($this->use_ci_parser === TRUE)
 			{
@@ -610,10 +713,16 @@ class Template {
 		
 		if (empty($content))
 		{
-			ob_clean();
+			//ob_clean();
 			show_404($view_name);
 			return false;
 		}
+		
+		// Should we cache it? 
+		if ($cache_me && !$this->is_ajax() && !$this->is_cached())
+		{
+			$this->write_cache($content);
+		} 
 		
 		echo $content;
 		return true;
@@ -641,36 +750,118 @@ class Template {
 	}
 	
 	//---------------------------------------------------------------
+	
+	//---------------------------------------------------------------
+	// CACHE FUNCTIONS
+	//---------------------------------------------------------------
+	
+	/**
+	 *	Checks to see if a file is cached, and stores the result
+	 * to save on processing later.
+	 */
+	private function is_cached($type='view') 
+	{ 
+		// If it's already cached, get out of here...
+		if (array_key_exists($this->cache_id, $this->cached) &&
+			$this->cached[$this->cache_id] == true) 
+		{
+			return true;
+		}
+		
+		// Nothing to do if there's no cache_id to work with. 
+		if (!$this->cache_id) 
+		{ 
+			return false;
+		} 
+	
+		$this->cached[$this->cache_id] = false;
+		
+		$cache_file = $this->cache_path . $this->cache_id .'.html';
+		
+		// Cache file exists?
+		if (!file_exists($cache_file)) return false;
+		
+		// Can we get the time of the file?
+		if (!($mtime = filemtime($cache_file))) return false;
+		
+		// Has the cache expired? 
+		$newtime = $type=='view' ? $this->cache_view_expires : $this->cache_layout_expires;
+		
+		if (($mtime + $newtime) < time())
+		{	
+			@unlink($cache_file);
+			return false;
+		}
+		else 
+		{	
+			// Cache the results of this is_cached() call. Why? so
+			// we don't have to double the overhead for each view.
+			// If we didn't cache, it would be hitting the file system
+			// twice as much (file_exists() && filemtime() [twice each])
+			$this->cached[$this->cache_id] = true;
+			return true;
+		}
+	}
+	
+	//---------------------------------------------------------------
+	
+	private function get_cache() 
+	{
+		$cache_file = $this->cache_path . $this->cache_id .'.html';
+		
+		if (!function_exists('read_file'))
+		{
+			$this->ci->load->helper('file');
+		}
+		
+		return read_file($cache_file);
+	}
+	
+	//---------------------------------------------------------------
+	
+	private function write_cache($content=null) 
+	{
+		if (empty($content)) return;
+		
+		if (!function_exists('write_file'))
+		{
+			$this->ci->load->helper('file');
+		}
+		
+		write_file($this->cache_path . $this->cache_id .'.html', $content);
+	}
+	
+	//---------------------------------------------------------------
 
 }
 
 function check_menu($item='')
+{
+	$ci =& get_instance();
+
+	if (strtolower($ci->router->fetch_class()) == strtolower($item))
 	{
-		$ci =& get_instance();
-	
-		if (strtolower($ci->router->fetch_class()) == strtolower($item))
-		{
-			return 'class="current"';
-		}
-		
-		return '';
+		return 'class="current"';
 	}
 	
-	//---------------------------------------------------------------
-	
-	function check_sub_menu($item='')
+	return '';
+}
+
+//---------------------------------------------------------------
+
+function check_sub_menu($item='')
+{
+	$ci =& get_instance();
+
+	if (strtolower($ci->router->fetch_method()) == strtolower($item))
 	{
-		$ci =& get_instance();
-	
-		if (strtolower($ci->router->fetch_method()) == strtolower($item))
-		{
-			return 'class="current"';
-		}
-		
-		return '';
+		return 'class="current"';
 	}
 	
-	//---------------------------------------------------------------
+	return '';
+}
+
+//---------------------------------------------------------------
 
 /* End of file Template.php */
 /* Location: ./application/libraries/Template.php */

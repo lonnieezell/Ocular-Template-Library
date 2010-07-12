@@ -2,8 +2,18 @@
 // OCULAR TEMPLATE LIBRARY
 // by Lonnie Ezell (http://igniteyourcode.com/ocular)
 //
-// version: 2.0.4
+// version: 2.1.0
 //---------------------------------------------------------------
+
+Version 2.1.0
+Changes:
+Additions: 
+	- Added view caching.
+Bugs:
+	- now correctly returns a 404 error when the 'current_view' doesn't exist.
+	- default AJAX view was incorrectly still using $this->ocular. 
+	- set_message() wasn't storing messages across sessions. Changed to check for CI_Session instead of session.
+	- set_theme() was checking for an old config setting. Updated to OCU_use_mobile_themes.
 
 Version 2.0.4
 Changes:

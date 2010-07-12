@@ -1,1 +1,1 @@
-<?php echo $this->ocular->yield(); ?>
+<?php echo $this->template->yield(); ?>
