@@ -184,7 +184,7 @@ class Template {
 		// Show the profiler?
 		if ($this->ci->config->item('OCU_profile')) $this->ci->output->enable_profiler(true);
 		
-		log_message('debug', 'Ocular library loaded');
+		log_message('debug', 'Template library loaded');
 		
 		$this->_mark('Template_constructor_end');
 	}
@@ -356,7 +356,6 @@ class Template {
 		} else {
 			$block_name = $default_view;
 		}
-		
 
 		if (empty($block_name)) 
 		{
@@ -364,9 +363,7 @@ class Template {
 			return;
 		}
 
-		$this->_render_view($block_name, $cache_me, $cache_expires);
-		
-		$this->_mark('Template_Block_end');
+		return $this->_render_view($block_name, $cache_me, $cache_expires);
 	}
 	
 	//---------------------------------------------------------------
@@ -540,11 +537,11 @@ class Template {
 	//---------------------------------------------------------------
 	
 	//---------------------------------------------------------------
-	// PRIVATE FUNCTIONS
+	// !PRIVATE FUNCTIONS
 	//---------------------------------------------------------------
 	
 	/**
-	 * Sets a benchmark mark if 'OCU_profile' is set to true
+	 * Sets a benchmark mark if 'TPL_profile' is set to true
 	 * in the config file, or if TRUE was passed as a second
 	 * parameter (allowing you to benchmark just one function.)
 	 * 
@@ -556,7 +553,7 @@ class Template {
 	private function _mark($name='', $override=FALSE) 
 	{
 		// Is Template supposed to provide benchmarks? 
-		if ($this->ci->config->item('OCU_profile') === TRUE || ($override === TRUE))
+		if ($this->ci->config->item('TPL_profile') === TRUE || ($override === TRUE))
 		{
 			if (!empty($name))
 			{
@@ -614,13 +611,13 @@ class Template {
 				}
 			}
 			
-			// If we still don't have a theme, set it to the default.
-			if (empty($this->active_theme))
-			{
-				$this->active_theme = $this->default_theme . '/';
-			}
 		}
 		
+		// If we still don't have a theme, set it to the default.
+		if (empty($this->active_theme))
+		{
+			$this->active_theme = $this->default_theme . '/';
+		}		
 	}
 	
 	//---------------------------------------------------------------
