@@ -218,7 +218,7 @@ class Template {
 		// Set in constructor.
 		$layout = empty($layout) ? $this->layout : $this->ci->config->item('OCU_layout_folder') . $layout;
 		
-		$this->_set_theme();
+		$this->_set_theme('');
 		
 		// Is it in an AJAX call? If so, override the layout
 		if ($this->is_ajax())
@@ -614,7 +614,7 @@ class Template {
 		}
 		
 		// If we still don't have a theme, set it to the default.
-		if (empty($this->active_theme))
+		if (empty($this->active_theme) && $this->ci->config->item('OCU_use_mobile_themes'))
 		{
 			$this->active_theme = $this->default_theme . '/';
 		}		
