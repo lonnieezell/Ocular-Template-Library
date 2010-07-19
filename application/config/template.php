@@ -62,7 +62,7 @@ $config['OCU_site_name'] = "Unnamed Ocular-Powered Site";
 | /views/templates/friends.php
 |
 */
-$config['OCU_layout_folder'] = "layouts/";
+$config['OCU_layout_folder'] = "layouts/"; 
 
 /*
 |--------------------------------------------------------------------
