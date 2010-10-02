@@ -208,5 +208,13 @@ $config['OCU_cache_view_expires'] = 900;
 */
 $config['OCU_cache_layout_expires'] = 3600;
 
+/*
+|--------------------------------------------------------------------
+| BREADCRUMB Separator
+|--------------------------------------------------------------------
+| The symbol displayed between elements of the breadcrumb.
+|
+*/
+$config['OCU_breadcrumb_symbol']	= ' : ';
 
 ?>

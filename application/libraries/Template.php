@@ -912,7 +912,7 @@ function breadcrumb($my_segments=null)
 				echo str_replace('_', ' ', $segment);
 			} else 
 			{
-				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($segment)) .'</a> &not; ';
+				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($segment)) .'</a>'. $ci->config->item('OCU_breadcrumb_symbol');
 			}
 		}
 	} else
@@ -928,7 +928,7 @@ function breadcrumb($my_segments=null)
 				echo str_replace('_', ' ', $title);
 			} else 
 			{
-				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($title)) .'</a> &not; ';
+				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($title)) .'</a>'. $ci->config->item('OCU_breadcrumb_symbol');
 			}
 		}
 	}
