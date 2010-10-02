@@ -894,7 +894,7 @@ function breadcrumb($my_segments=null)
 		$total = count($my_segments);
 	}
 	
-	echo '<a href="/">home</a> &not; ';
+	echo '<a href="/">home</a> ' . $ci->config->item('OCU_breadcrumb_symbol');
 	
 	$url = '';
 	$count = 0;
