@@ -2,8 +2,18 @@
 // OCULAR TEMPLATE LIBRARY
 // by Lonnie Ezell (http://igniteyourcode.com/ocular)
 //
-// version: 2.1.0
+// version: 2.12
 //---------------------------------------------------------------
+
+Version 2.12
+Additions: 
+	- Breadcrumb function added.
+Changes: 
+	- The set() method can now accept arrays. (Thanks to dkenzik)
+	- The library should now automatically find the correct views when the controller is in a sub-folder (Thanks to alertmybanjos)
+Bugs: 
+	- Yield function now renders properly (Thanks to hammudi and alertmybanjos for pointing out that it wasn't in the repo)
+	- MY_Loader.php is added back into the repo for the fallback function with themes to work. (Thanks dkenzik)
 
 Version 2.1.0
 Changes:

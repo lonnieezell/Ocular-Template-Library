@@ -7,7 +7,7 @@
  * 
  * @author Lonnie Ezell
  * @package Ocular Layout Library
- * @version 2.0.4
+ * @version 2.12
  */
 class Template {
 
@@ -229,11 +229,13 @@ class Template {
 			$this->ci->output->set_header("Pragma: no-cache"); 
 		}
 		
+		
 		// Grab our current view name, based on controller/method
 		// which routes to views/controller/method.
 		if (empty($this->current_view))
 		{
-			$this->current_view = $this->ci->router->class . '/' . $this->ci->router->method;
+			$this->current_view = $this->ci->router->directory . $this->ci->router->class . '/' . $this->ci->router->method;
+			echo 'Current View = '. $this->current_view;
 		}
 				
 		//
@@ -313,7 +315,7 @@ class Template {
 		
 		// If we've cached the layout, we don't return anything except the 
 		// yield function itself.
-		if ($bypass === false)
+		if ($bypass === true)
 		{
 			return '{yield}';
 		} else 
@@ -404,12 +406,21 @@ class Template {
 	{
 		$this->_mark('Template_Set_start');
 		
-		if (empty($var_name))
-		{
-			return false;
-		}
-		
-		$this->data[$var_name] = $value;
+		// Added by dkenzik
+	    // 20101001
+	    // Easier migration when $data is scaterred all over your project
+	    //
+	    if(is_array($var_name) && $value=='')
+	    {
+	        foreach($var_name as $key => $value)
+	        {
+	        	$this->data[$key] = $value;
+	        }           
+	    }
+	    else
+	    {
+	        $this->data[$var_name] = $value;
+	    }
 		
 		$this->_mark('Template_Set_end');
 	}
@@ -830,6 +841,9 @@ class Template {
 
 }
 
+// END of Template class
+
+
 function check_menu($item='')
 {
 	$ci =& get_instance();
@@ -854,6 +868,70 @@ function check_sub_menu($item='')
 	}
 	
 	return '';
+}
+
+//---------------------------------------------------------------
+
+/**
+ * Will create a breadcrumb from either the uri->segments or
+ * from a key/value paired array passed into it. 
+ */
+function breadcrumb($my_segments=null) 
+{
+	$ci =& get_instance();
+	
+	if (!class_exists($CI_URI))
+	{
+		$ci->load->library('uri');
+	}
+	
+	if (empty($my_segments) || !is_array($my_segments))
+	{
+		$segments = $ci->uri->segment_array();
+		$total = $ci->uri->total_segments();
+	} else 
+	{
+		$total = count($my_segments);
+	}
+	
+	echo '<a href="/">home</a> &not; ';
+	
+	$url = '';
+	$count = 0;
+	
+	// URI BASED BREADCRUMB
+	if (is_null($my_segments))
+	{
+		foreach ($segments as $segment)
+		{
+			$url .= '/'. $segment;
+			$count += 1;
+		
+			if ($count == $total)
+			{
+				echo str_replace('_', ' ', $segment);
+			} else 
+			{
+				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($segment)) .'</a> &not; ';
+			}
+		}
+	} else
+	{
+		// USER-SUPPLIED BREADCRUMB
+		foreach ($my_segments as $title => $uri)
+		{
+			$url .= '/'. $uri;
+			$count += 1;
+		
+			if ($count == $total)
+			{
+				echo str_replace('_', ' ', $title);
+			} else 
+			{
+				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($title)) .'</a> &not; ';
+			}
+		}
+	}
 }
 
 //---------------------------------------------------------------
