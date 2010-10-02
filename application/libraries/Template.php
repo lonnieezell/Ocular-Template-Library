@@ -542,6 +542,10 @@ class Template {
 		$template = str_replace('{type}', $type, $this->ci->config->item('OCU_message_template'));
 		$template = str_replace('{message}', $message, $template);
 		
+		// Clear our session data so we don't get extra messages. 
+		// (This was a very rare occurence, but unsetting should resolve the problem.
+		$this->ci->session->unset_flashdata('message');
+		
 		return $template;
 	}
 	

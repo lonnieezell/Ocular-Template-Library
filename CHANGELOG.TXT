@@ -5,6 +5,10 @@
 // version: 2.12
 //---------------------------------------------------------------
 
+Version 2.13 (In progress)
+Changes: 
+	- When the message() method is called, it will remove the session data before exiting to ensure you don't see the message on pages you shouldn't.
+
 Version 2.12
 Additions: 
 	- Breadcrumb function added.
