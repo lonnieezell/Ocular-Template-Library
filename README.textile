@@ -1,6 +1,6 @@
 Ocular is a Layout Library for the CodeIgniter PHP Framework. It favors conventions to make your app organized and simple to get using, but maintains plenty of flexibility.
 
-Current Version: 2.11
+Current Version: 2.12
 
 h2. Features
 
