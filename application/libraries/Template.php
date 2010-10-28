@@ -6,8 +6,9 @@
  * entire site simple and as automatic as possible.
  * 
  * @author Lonnie Ezell
+ * @license http://creativecommons.org/licenses/by-sa/3.0/
  * @package Ocular Layout Library
- * @version 2.12
+ * @version 2.13
  */
 class Template {
 
@@ -223,7 +224,7 @@ class Template {
 		// Is it in an AJAX call? If so, override the layout
 		if ($this->is_ajax())
 		{
-			$layout = $this->ci->config->item('OCU_ajax_layout');
+			$layout = $this->ci->config->item('OCU_layout_folder') . $this->ci->config->item('OCU_ajax_layout');
 			$this->ci->output->set_header("Cache-Control: no-store, no-cache, must-revalidate");
 			$this->ci->output->set_header("Cache-Control: post-check=0, pre-check=0");
 			$this->ci->output->set_header("Pragma: no-cache"); 
@@ -235,7 +236,6 @@ class Template {
 		if (empty($this->current_view))
 		{
 			$this->current_view = $this->ci->router->directory . $this->ci->router->class . '/' . $this->ci->router->method;
-			echo 'Current View = '. $this->current_view;
 		}
 				
 		//
@@ -342,7 +342,7 @@ class Template {
 	 * @param string $default_view. (default: '')
 	 * @return void
 	 */
-	public function block($block_name='', $default_view='', $cache_me = false, $cache_expires=900) 
+	public function block($block_name='', $default_view='', $data=array(), $cache_me = false, $cache_expires=900) 
 	{
 		$this->_mark('Template_Block_start');
 		
@@ -365,7 +365,7 @@ class Template {
 			return;
 		}
 
-		return $this->_render_view($block_name, $cache_me, $cache_expires);
+		return $this->_render_view($block_name, $cache_me, $data);
 	}
 	
 	//---------------------------------------------------------------
@@ -666,7 +666,7 @@ class Template {
 	 * @access	private
 	 * @return	boolean
 	 */
-	private function _render_view($view_name='', $cache_me=false)
+	private function _render_view($view_name='', $cache_me=false, $data=null)
 	{
 	
 		if (empty($view_name))
@@ -676,6 +676,11 @@ class Template {
 		}
 				
 		$content = '';
+		
+		if (!is_array($data))
+		{
+			$data = $this->data;
+		}
 		
 		if ($cache_me && !$this->is_ajax())
 		{
@@ -697,27 +702,27 @@ class Template {
 			if ($this->use_ci_parser === TRUE) 
 			{
 				$this->ci->load->library('parser');
-				$content = $this->ci->parser->parse($this->_check_view($view_name), $this->data, true);
+				$content = $this->ci->parser->parse($this->_check_view($view_name), $data, true);
 			} else 
 			{
-				$content = $this->ci->load->view($this->_check_view($view_name), $this->data, true);
+				$content = $this->ci->load->view($this->_check_view($view_name), $data, true);
 			}
 
 
 			if (empty($content))
 			{
 				// Oops. Not found in the active_theme. Try the default.
-				$content = $this->ci->load->view($this->_check_view($view_name, true), $this->data, true);
+				$content = $this->ci->load->view($this->_check_view($view_name, true), $data, true);
 			}
 		} else if (empty($content) && empty($this->active_theme))
 		{
 			if ($this->use_ci_parser === TRUE)
 			{
 				$this->ci->load->library('parser');
-				$content = $this->ci->parser->parse($view_name, $this->data, true);
+				$content = $this->ci->parser->parse($view_name, $data, true);
 			} else 
 			{
-				$content = $this->ci->load->view($view_name, $this->data, true);
+				$content = $this->ci->load->view($view_name, $data, true);
 			}
 		}
 		
@@ -877,8 +882,32 @@ function check_sub_menu($item='')
 //---------------------------------------------------------------
 
 /**
+ * Renders a view based on current theme.
+ *
+ * @since 2.13
+ */
+function themed_view($view=null, $data=array()) 
+{
+	if (empty($view) || !is_string($view))
+	{
+		return;
+	}
+	
+	$ci =& get_instance();
+	
+	// Load the data so it's available...
+	$ci->load->vars($data);
+	
+	return $ci->template->render_view($view);
+}
+
+//---------------------------------------------------------------
+
+/**
  * Will create a breadcrumb from either the uri->segments or
  * from a key/value paired array passed into it. 
+ *
+ * @since 2.12
  */
 function breadcrumb($my_segments=null) 
 {

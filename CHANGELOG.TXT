@@ -2,12 +2,21 @@
 // OCULAR TEMPLATE LIBRARY
 // by Lonnie Ezell (http://igniteyourcode.com/ocular)
 //
-// version: 2.12
+// LICENSE: Creative Commons Attribution-ShareAlike 3.0 Unported
+// http://creativecommons.org/licenses/by-sa/3.0/
+//
+// version: 2.13
 //---------------------------------------------------------------
 
-Version 2.13 (In progress)
+Version 2.13
+Additions: 
+	- Added the themed_view() function.
 Changes: 
 	- When the message() method is called, it will remove the session data before exiting to ensure you don't see the message on pages you shouldn't.
+	- Blocks now allow a $data array to be passed to them, which will be passed to the view in place of the global $data collection.
+Bugs: 
+	- Removed a stray debug echo.
+	- The ajax view should now render correctly.
 
 Version 2.12
 Additions: 

@@ -4,7 +4,8 @@
  *
  * @package Ocular Template Library
  * @author Lonnie Ezell
- * @version 2.12
+ * @license http://creativecommons.org/licenses/by-sa/3.0/
+ * @version 2.13
  */
 
 /*
