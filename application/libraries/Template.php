@@ -543,8 +543,8 @@ class Template {
 		$template = str_replace('{message}', $message, $template);
 		
 		// Clear our session data so we don't get extra messages. 
-		// (This was a very rare occurence, but unsetting should resolve the problem.
-		$this->ci->session->unset_flashdata('message');
+		// (This was a very rare occurence, but clearing should resolve the problem.
+		$this->ci->session->flashdata('message', '');
 		
 		return $template;
 	}
