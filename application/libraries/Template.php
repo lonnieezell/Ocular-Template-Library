@@ -1,4 +1,4 @@
-<?php  if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+<?php if (!defined('BASEPATH')) exit('No direct script access allowed');
 /**
  * Template Class
  *
@@ -8,18 +8,32 @@
  * @author Lonnie Ezell
  * @license http://creativecommons.org/licenses/by-sa/3.0/
  * @package Ocular Layout Library
- * @version 2.13
+ * @version 3.0a
  */
 class Template {
 
+	private static $debug = true;
+
 	/**
-	 * An instance of the CI super object.
+	 * Stores the name of the active theme (folder)
+	 * with a trailing slash. 
 	 * 
-	 * @var mixed
-	 * @access private
+	 * (default value: '')
+	 * 
+	 * @var string
+	 * @access protected
 	 */
-	public $ci;
+	protected static $active_theme = '';
 	
+	/**
+	 * Stores the default theme from the config file
+	 * for a slight performance increase.
+	 *
+	 * @var string
+	 * @access protected
+	 */
+	 protected static $default_theme = '';
+
 	/**
 	 * The view to load. Normally not set unless
 	 * you need to bypass the automagic.
@@ -27,18 +41,18 @@ class Template {
 	 * @var mixed
 	 * @access public
 	 */
-	public $current_view;
+	public static $current_view;
 	
 	/**
 	 * The layout to render the views into.
 	 * 
 	 * @var mixed
-	 * @access protected
+	 * @access public
 	 */
-	public $layout;
+	public static $layout;
 	
 	/**
-	 * use_ci_parser
+	 * parse_views
 	 * 
 	 * If true, CodeIgniter's Template Parser will be used to 
 	 * parse the view. If false, the view is displayed with
@@ -47,7 +61,7 @@ class Template {
 	 * @var mixed
 	 * @access public
 	 */
-	public $use_ci_parser = false;
+	public static $parse_views = false;
 	
 	/**
 	 * The data to be passed into the views.
@@ -57,7 +71,7 @@ class Template {
 	 * @var mixed
 	 * @access protected
 	 */
-	protected $data;
+	protected static $data = array();
 	
 	/**
 	 * An array of blocks. The key is the name
@@ -70,30 +84,7 @@ class Template {
 	 * @var array
 	 * @access protected
 	 */
-	protected $blocks = array();
-	
-	
-	/**
-	 * If themes are turned on in the config file, this
-	 * value stores the name of the active theme (folder)
-	 * with a trailing slash. 
-	 *
-	 * If 'OCU_use_themes' is FALSE, you can still use
-	 * this value to create your own themeing system
-	 * through the set_theme() and theme() functions.
-	 * 
-	 * (default value: '')
-	 * 
-	 * @var string
-	 * @access protected
-	 */
-	protected $active_theme = '';
-	
-	/**
-	 * Stores the default theme from the config file
-	 * for a slight performance increase.
-	 */
-	 protected  $default_theme = '';
+	protected static $blocks = array();
 	
 	/**
 	 * Holds a simple array to store the status Message
@@ -102,95 +93,85 @@ class Template {
 	 * @var array
 	 * @access protected
 	 */
-	public $message;
-	
+	protected static $message;
+
 	/**
-	 * Do we cache views?
+	 * An array of paths to look for themes.
 	 *
-	 * @access public
-	 * @var boolean
-	 */
-	public $cache_view;
-	
-	/**
-	 * Do we cache the layout?
-	 *
-	 * @var boolean
-	 * @access public
-	 */
-	public $cache_layout;
-	
-	/**
-	 * Default time to cache the view for.
-	 *
-	 * @var int
-	 * @access public
-	 */
-	public $cache_view_expires;
-	
-	/**
-	 * Default time to cache the layout for.
-	 *
-	 * @var int
-	 * @access public
-	 */
-	public $cache_layout_expires;
-	
-	/**
-	 * Where to store cache files.
-	 * This uses the global CI setting.
-	 *
-	 * @var string
+	 * @var array
 	 * @access protected
 	 */
-	protected $cache_path;
+	protected static $theme_paths	= array();	
 	
 	/**
-	 * An array of cache_id's and true/false
-	 * about whether a view has been cached or not.
+	 * The full server path to the site root.
 	 */
-	 protected $cached = array();
+	public static $site_path;
 	
+	/**
+	 * Stores CI's default view path.
+	 */
+	protected static $orig_view_path;
 	
-	
-	//---------------------------------------------------------------
-	
+	/**
+	 * An instance of the CI super object.
+	 * 
+	 * @var mixed
+	 * @access private
+	 */
+	private static $ci;
+
+	//--------------------------------------------------------------------
+
 	/**
 	 * __construct function.
 	 *
-	 * Grabs an instance of the CI superobject, loads the Ocular config
-	 * file, and sets our default layout.
+	 * This is purely here for CI's benefit. 
 	 * 
 	 * @access public
 	 * @return void
 	 */
 	public function __construct() 
 	{	
-		$this->ci =& get_instance();
+		self::$ci =& get_instance();
 		
-		$this->_mark('Template_constructor_start');
-		
-		$this->ci->config->load('template');
-		
-		// Store some of our defaults
-		$this->layout = $this->ci->config->item('OCU_layout_folder') . $this->ci->config->item('OCU_default_layout');
-		$this->default_theme = $this->ci->config->item('OCU_default_theme');
-		
-		$this->cache_path = $this->ci->config->item('cache_path');
-		$this->cache_view = $this->ci->config->item('OCU_cache_view');
-		$this->cache_layout = $this->ci->config->item('OCU_cache_layout');
-		$this->cache_view_expires = $this->ci->config->item('OCU_cache_view_expires');
-		$this->cache_layout_expires = $this->ci->config->item('OCU_cache_layout_expires');
-				
-		// Show the profiler?
-		if ($this->ci->config->item('OCU_profile')) $this->ci->output->enable_profiler(true);
-		
-		log_message('debug', 'Template library loaded');
-		
-		$this->_mark('Template_constructor_end');
+		self::init();
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
+	
+	/**
+	 * init function
+	 * 
+	 * Grabs an instance of the CI superobject, loads the Ocular config
+	 * file, and sets our default layout.
+	 *
+	 * @access 	public
+	 * @return	void
+	 */
+	public static function init() 
+	{
+		// If the application config file hasn't been loaded, do it now
+		if (!self::$ci->config->item('template.theme_paths'))
+		{ 
+			self::$ci->config->load('template');
+		}
+		
+		// Store our settings
+		self::$site_path 		= self::$ci->config->item('template.site_path');
+		self::$theme_paths 		= self::$ci->config->item('template.theme_paths');
+		self::$layout 			= self::$ci->config->item('template.default_layout');
+		self::$default_theme 	= self::$ci->config->item('template.default_theme');
+		self::$parse_views		= self::$ci->config->item('template.parse_views');
+		
+		// Store our orig view path, so we can reset it
+		self::$orig_view_path = self::$ci->load->_ci_view_path;
+		
+		log_message('debug', 'Template library loaded');
+	}
+	
+	//--------------------------------------------------------------------
+	
 	
 	/**
 	 * render function.
@@ -201,105 +182,43 @@ class Template {
 	 * 
 	 * @access public
 	 * @param 	string 	$layout. (default: '')
-	 * @param 	boolean $cache_me	Whether or not to cache the layout
 	 * @return void
 	 */
-	public function render($layout='', $cache_me=false) 
-	{	
-		$this->_mark('Template_Render_start');
-		
-		$this->set('site_name', $this->ci->config->item('OCU_site_name'));
+	public static function render($layout=null) 
+	{
+		$output = '';
+	
+		// We need to know which layout to render
+		$layout = empty($layout) ? self::$layout : $layout;
 
-		$this->set('active_controller', $this->ci->router->class);
-		$this->set('active_method', $this->ci->router->method);
-		$this->set('active_view', $this->current_view);
-		
-		// Make sure we're using the correct layout.
-		// If none is specified, use the default. 
-		// Set in constructor.
-		$layout = empty($layout) ? $this->layout : $this->ci->config->item('OCU_layout_folder') . $layout;
-		
-		$this->_set_theme('');
-		
 		// Is it in an AJAX call? If so, override the layout
-		if ($this->is_ajax())
+		/*if ($this->is_ajax())
 		{
-			$layout = $this->ci->config->item('OCU_layout_folder') . $this->ci->config->item('OCU_ajax_layout');
-			$this->ci->output->set_header("Cache-Control: no-store, no-cache, must-revalidate");
-			$this->ci->output->set_header("Cache-Control: post-check=0, pre-check=0");
-			$this->ci->output->set_header("Pragma: no-cache"); 
-		}
-		
+			$layout = self::$ci->config->item('template.ajax_layout');
+			self::$ci->output->set_header("Cache-Control: no-store, no-cache, must-revalidate");
+			self::$ci->output->set_header("Cache-Control: post-check=0, pre-check=0");
+			self::$ci->output->set_header("Pragma: no-cache"); 
+		}*/
 		
 		// Grab our current view name, based on controller/method
 		// which routes to views/controller/method.
-		if (empty($this->current_view))
-		{
-			$this->current_view = $this->ci->router->directory . $this->ci->router->class . '/' . $this->ci->router->method;
+		if (empty(self::$current_view))
+		{		
+			self::$current_view = self::$ci->router->class . '/' . self::$ci->router->method;
 		}
-				
+		
 		//
 		// Time to render the layout
 		//
+		self::load_view($layout, self::$data, self::$ci->router->class, true, $output);
 		
-		// The cache_id is based on the layout name + the current url so that 
-		// variances between pages will be taken into affect.
-		$this->cache_id = md5($layout . $this->ci->uri->uri_string);
-		
-		$output = '';
-		
-		if ($this->cache_layout && $this->is_cached('layout'))
-		{ 
-			// Show the cache
-			$output = $this->get_cache();
-		} else 
-		{	
-			// Start by checking if there's a theme available
-			if (!empty($this->active_theme))
-			{ 
-				// A theme has been specified. First try to locate the file under
-				// the active theme. If that doesn't work, fall back to the default theme.
-				$output = $this->ci->load->view($this->_check_layout($layout), $this->data, true);
-				if (empty($output))
-				{ 
-					// Oops. Not found in active theme. Try the default.
-					$output = $this->ci->load->view($this->_check_layout($layout, true), $this->data, true);
-					if (empty($output))
-					{
-						// Layout not found, so spit out an error.
-						show_error('Unable to load the requested file: ' . $layout);
-					} 
-				}
-				
-			} else 
-			{	
-				// We're not using themes, so default to the 'views' folder
-				$output = $this->ci->load->view($layout, $this->data, true);
-				if (empty($output))
-				{
-					// Show an error here, since we're overriding CI's loader.
-					show_error('Unable to load the requested file: '. $layout);
-				}
-				
-			}
-			
-			// Cache the output buffer if required.
-			if ($this->cache_layout && !$this->is_cached())
-			{
-				$this->write_cache($output);
-			} 
-			
-		}
-		
-		$output = str_replace('{yield}', $this->yield(true), $output);	
+		if (empty($output)) { show_error('Unable to find theme layout: '. $layout); }
 		
 		global $OUT;
-		$OUT->set_output($output);
-				
-		$this->_mark('Template_Render_end');
+		$OUT->set_output($output); 
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
 	
 	/**
 	 * Renders the current page. 
@@ -309,23 +228,37 @@ class Template {
 	 * @access public
 	 * @return void
 	 */
-	public function yield($bypass=false) 
-	{ 
-		$this->_mark('Template_Yield_start');
+	public static function yield() 
+	{ 	
+		$output = '';
 		
-		// If we've cached the layout, we don't return anything except the 
-		// yield function itself.
-		if ($bypass === true)
+		self::load_view(self::$current_view, null, self::$ci->router->class .'/'. self::$ci->router->method, false, $output);
+		
+		return $output;
+	}
+	
+	//--------------------------------------------------------------------
+	
+	/**
+	 * Stores the block named $name in the blocks array for later rendering.
+	 * The $current_view variable is the name of an existing view. If it is empty,
+	 * your script should still function as normal.
+	 * 
+	 * @access public
+	 * @param string $name. (default: '')
+	 * @param string $view. (default: '')
+	 * @return void
+	 */
+	public static function set_block($block_name='', $view_name='') 
+	{		
+		if (!empty($block_name))
 		{
-			return '{yield}';
-		} else 
-		{
-			return $this->_render_view($this->current_view, $this->cache_view);
-		}
+			self::$blocks[$block_name] = $view_name;
+		} 
 		
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
 	
 	/**
 	 * Renders a "block" to the view.
@@ -342,20 +275,61 @@ class Template {
 	 * @param string $default_view. (default: '')
 	 * @return void
 	 */
-	public function block($block_name='', $default_view='', $data=array(), $cache_me = false, $cache_expires=900) 
-	{
-		$this->_mark('Template_Block_start');
+	public static function block($block_name='', $default_view='', $data=array(), $themed=false)
+	{		
+		if (empty($block_name)) 
+		{
+			log_message('debug', '[Template] No block name provided.');
+			return;
+		}
+
+		// If a block has been set previously use that
+		if (isset(self::$blocks[$block_name]))
+		{
+			$block_name = self::$blocks[$block_name];
+		} 
+		// Otherwise, use the default view.
+		else 
+		{
+			$block_name = $default_view;
+		}
+
+		if (self::$debug) { echo "Looking for block: <b>{$block_name}</b>."; }
+
+		if (empty($block_name)) 
+		{
+			log_message('debug', 'Ocular was unable to find the default block: ' . $default_view);
+			return;
+		}
 		
+		$output = '';
+		self::load_view($block_name, $data, false, true, $output);
+		return $output;
+	}
+	
+	//--------------------------------------------------------------------
+	
+	/**
+	 *	IS THIS REALLY STILL NEEDED?
+	 */
+	public static function theme_block($block_name='', $default_view='', $data=null) 
+	{
 		if (empty($block_name)) 
 		{
 			log_message('debug', '[Ocular] No block name provided.');
 			return;
 		}
+		
+		$output = '';
 
-		if (array_key_exists($block_name, $this->blocks))
+		// If a block has been set previously use that
+		if (array_key_exists($block_name, self::$blocks))
 		{
-			$block_name = $this->blocks[$block_name];
-		} else {
+			$block_name = self::$blocks[$block_name];
+		} 
+		// Otherwise, use the default view.
+		else 
+		{
 			$block_name = $default_view;
 		}
 
@@ -364,35 +338,121 @@ class Template {
 			log_message('debug', 'Ocular was unable to find the default block: ' . $default_view);
 			return;
 		}
-
-		return $this->_render_view($block_name, $cache_me, $data);
+		
+		// If we haven't passed custom data to the function, include global data.
+		$data = empty($data) ? self::$data : $data;
+	
+		self::load_view($block_name, $data, null, true, $output);
+		
+		if (empty($output)) { show_error('Unable to find theme layout: '. $block_name); }
+		
+		return $output;
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
 	
 	/**
-	 * Stores the block named $name in the blocks array for later rendering.
-	 * The $current_view variable is the name of an existing view. If it is empty,
-	 * your script should still function as normal.
+	 * add_theme_path method
 	 * 
-	 * @access public
-	 * @param string $name. (default: '')
-	 * @param string $view. (default: '')
-	 * @return void
+	 * Theme paths allow you to have multiple locations for themes to be
+	 * stored. This might be used for separating themes for different sub-
+	 * applications, or a core theme and user-submitted themes.
+	 *
+	 * @param	string	$path	A new path where themes can be found.
 	 */
-	public function set_block($block_name='', $view_name='') 
+	public static function add_theme_path($path=null) 
 	{
-		$this->_mark('Template_Set_Block_start');
-		
-		if (!empty($block_name))
+		if (empty($path) || !is_string($path))
 		{
-			$this->blocks[$block_name] = $view_name;
-		} 
+			return false;
+		}
 		
-		$this->_mark('Template_Set_Block_end');
+		// Make sure the path has a '/' at the end.
+		if (substr($path, -1) != '/')
+		{
+			$path .= '/';
+		}
+		
+		// If the path already exists, we're done here.
+		if (isset(self::$theme_paths[$path]))
+		{
+			return true;
+		}
+		
+		// Make sure the folder actually exists
+		if (is_dir(FCPATH . $path))
+		{
+			array_unshift(self::$theme_paths, $path);
+			return false;
+		} else 
+		{
+			log_message('debug', "[Template] Cannot add theme folder: $path does not exist");
+			return false;
+		}
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
+	
+	/**
+	 * remove_theme_path method
+	 *
+	 * @param	string	$path	The path to remove from the theme paths.
+	 * @return	void
+	 */
+	public static function remove_theme_path($path=null) 
+	{
+		if (empty($path) || !is_string($path))
+		{
+			return;
+		}
+		
+		if (isset(self::$theme_paths[$path]))
+		{
+			unset(self::$theme_paths[$path]);
+		}
+	}
+	
+	//--------------------------------------------------------------------
+	
+	/**
+	 * set_theme method
+	 *
+	 * Stores the name of the active theme to use. This theme should be
+	 * relative to one of the 'template.theme_paths' folders.
+	 *
+	 * @access	public
+	 * @param	string	$theme	The name of the active theme
+	 * @return	void
+	 */
+	public static function set_theme($theme=null) 
+	{
+		if (empty($theme) || !is_string($theme))
+		{
+			return;
+		}
+
+		// Make sure a trailing slash is there
+		if (substr($theme, -1) !== '/')
+		{
+			$theme .= '/';
+		}
+
+		self::$active_theme = $theme;
+	}
+	
+	//--------------------------------------------------------------------
+	
+	/**
+	 * Returns the active theme.
+	 * 
+	 * @return	string	The name of the active theme.
+	 */
+	public static function theme() 
+	{
+		return self::$active_theme;
+	}
+	
+	//--------------------------------------------------------------------
 	
 	/**
 	 * Makes it easy to save information to be rendered within the views.
@@ -402,10 +462,8 @@ class Template {
 	 * @param string $value. (default: '')
 	 * @return void
 	 */
-	public function set($var_name='', $value='') 
-	{
-		$this->_mark('Template_Set_start');
-		
+	public static function set($var_name='', $value='') 
+	{		
 		// Added by dkenzik
 	    // 20101001
 	    // Easier migration when $data is scaterred all over your project
@@ -414,61 +472,55 @@ class Template {
 	    {
 	        foreach($var_name as $key => $value)
 	        {
-	        	$this->data[$key] = $value;
+	        	self::$data[$key] = $value;
 	        }           
 	    }
 	    else
 	    {
-	        $this->data[$var_name] = $value;
+	        self::$data[$var_name] = $value;
 	    }
-		
-		$this->_mark('Template_Set_end');
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
 	
 	/**
-	 * Sets the active_theme property and adds a trailing slash.
-	 * 
-	 * @access public
-	 * @param string $name. (default: '')
-	 * @return void
-	 */
-	public function set_theme($theme_name='') 
-	{
-		$this->active_theme = $theme_name . '/';
-	}
-	
-	//---------------------------------------------------------------
-	
-	/**
-	 * Returns the name of the active theme.
-	 * 
-	 * @access public
-	 * @return void
-	 */
-	public function theme() 
-	{
-		return $this->active_theme();
-	}
-	
-	//---------------------------------------------------------------
-	
-	/**
-	 * is_ajax function.
+	 *	Returns a variable that has been previously set, or false if not exists.
 	 *
-	 * Checks if a request has been made through AJAX or not.
-	 * Thanks to Jamie Rumbelow (http://jamierumbelow.net) for this one.
-	 * 
-	 * @access public
-	 * @return void
+	 * @param	string	$var_name	The name of the data item to return.
+	 * @return	string/bool
 	 */
-	public function is_ajax() 
+	public static function get($var_name=null) 
 	{
-		return ($this->ci->input->server('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest') ? TRUE : FALSE;
+		if (empty($var_name))
+		{
+			return false;
+		}
+		
+		if (isset(self::$data[$var_name]))
+		{
+			return self::$data[$var_name];
+		}
+		
+		return false;
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
+	
+	/**
+	 * parse_views method
+	 *
+	 * Set whether or not the views will be passed through CI's parser.
+	 *
+	 * @param	bool	$parse	Should we parse views?
+	 * @return	void
+	 */
+	public function parse_views($parse) 
+	{
+		self::parse_views($parse);
+	}
+	
+	//--------------------------------------------------------------------
+	
 	
 	/**
 	 * Sets a status message (for displaying small success/error messages).
@@ -481,16 +533,16 @@ class Template {
 	 * @param string $type. (default: 'info')
 	 * @return void
 	 */
-	public function set_message($message='', $type='info') 
+	public static function set_message($message='', $type='info') 
 	{
 		if (!empty($message))
 		{
 			if (class_exists('CI_Session'))
 			{
-				$this->ci->session->set_flashdata('message', $type.'::'.$message);
+				self::$ci->session->set_flashdata('message', $type.'::'.$message);
 			}
 			
-			$this->message = array('type'=>$type, 'message'=>$message);
+			self::$message = array('type'=>$type, 'message'=>$message);
 		}
 	}
 	
@@ -505,7 +557,7 @@ class Template {
 	 * @access public
 	 * @return void
 	 */
-	public function message() 
+	public static function message() 
 	{
 		$message = '';		// The message body.
 		$type	 = '';		// The message type (used for class)
@@ -513,345 +565,170 @@ class Template {
 		// Does session data exist? 
 		if (class_exists('CI_Session'))
 		{
-			$message = $this->ci->session->flashdata('message');
-		}
-
-		if (!empty($message))
-		{
-			// Split out our message parts
-			$temp_message = explode('::', $message);
-			$type = $temp_message[0];
-			$message = $temp_message[1];
+			$message = self::$ci->session->flashdata('message');
 			
-			unset($temp_message);
-		} 
+			if (!empty($message))
+			{
+				// Split out our message parts
+				$temp_message = explode('::', $message);
+				$type = $temp_message[0];
+				$message = $temp_message[1];
+				
+				unset($temp_message);
+			} 
+		}
 		
 		// If message is empty, we need to check our own storage.
 		if (empty($message))
 		{
-			if (empty($this->message['message']))
+			if (empty(self::$message['message']))
 			{
 				return '';
 			}
 			
-			$message = $this->message['message'];
-			$type = $this->message['type'];
+			$message = self::$message['message'];
+			$type = self::$message['type'];
 		}
 		
 		// Grab out message template and replace the placeholders
-		$template = str_replace('{type}', $type, $this->ci->config->item('OCU_message_template'));
+		$template = str_replace('{type}', $type, self::$ci->config->item('template.message_template'));
 		$template = str_replace('{message}', $message, $template);
 		
 		// Clear our session data so we don't get extra messages. 
 		// (This was a very rare occurence, but clearing should resolve the problem.
-		$this->ci->session->flashdata('message', '');
+		if (class_exists('CI_Session'))
+		{
+			self::$ci->session->flashdata('message', '');
+		}
 		
 		return $template;
 	}
 	
 	//---------------------------------------------------------------
 	
-	//---------------------------------------------------------------
-	// !PRIVATE FUNCTIONS
-	//---------------------------------------------------------------
-	
 	/**
-	 * Sets a benchmark mark if 'TPL_profile' is set to true
-	 * in the config file, or if TRUE was passed as a second
-	 * parameter (allowing you to benchmark just one function.)
-	 * 
-	 * @access private
-	 * @param string $name. (default: '')
-	 * @param mixed $override. (default: FALSE)
-	 * @return void
+	 *	Loads a view based on the current themes.
+	 *
+	 * @param	string	$view		The view to load.
+	 * @param	array	$data		An array of data elements to be made available to the views
+	 * @param	string	$override	The name of a view to check for first (used for controller-based layouts)
+	 * @param	bool	$is_themed	Whether it should check in the theme folder first.
+	 * @return	string	$output		The results of loading the view
 	 */
-	private function _mark($name='', $override=FALSE) 
+	public static function load_view($view=null, $data=null, $override='', $is_themed=true, &$output) 
 	{
-		// Is Template supposed to provide benchmarks? 
-		if ($this->ci->config->item('TPL_profile') === TRUE || ($override === TRUE))
-		{
-			if (!empty($name))
+		if (empty($view))	return '';
+		
+		// If no active theme is present, use the default theme.
+		$theme = empty(self::$active_theme) ? self::$default_theme : self::$active_theme;
+	
+		if ($is_themed)
+		{	
+			// First check for the overriden file...
+			self::find_file($override, $data, $theme, $output);
+			
+			// If we didn't find it, try the standard view
+			if (empty($output))
 			{
-				$this->ci->benchmark->mark($name);
+				self::find_file($view, $data, $theme, $output);
 			}
 		} 
-	}
-	
-	//---------------------------------------------------------------
-	
-	/**
-	 * Sets the current theme, based on user_agents.
-	 * 
-	 * @access private
-	 * @return void
-	 */
-	private function _set_theme() 
-	{
-		if ($this->ci->config->item('OCU_use_mobile_themes') === TRUE)
+		
+		// Just a normal view (possibly from a module, though.)
+		else 
 		{
-			// Load our user_agent library
-			$this->ci->load->library('user_agent');
+			// First check within our themes...
+			self::find_file($view, $data, $theme, $output);
 			
-			$agent ='';
-			
-			// Grab our agent
-			if ($this->ci->agent->is_mobile())
-			{
-			    $agent = $this->ci->agent->mobile();
-			}
-			else if ($this->ci->agent->is_browser())
-			{
-			    $agent = $this->ci->agent->browser().' '.$this->ci->agent->version();
-			}
-			else if ($this->ci->agent->is_robot())
-			{
-			    $agent = $this->ci->agent->robot();
-			}
-			
-			// Check our themes array to see if we can find a match.
-			if (!empty($agent))
-			{
-				$themes = $this->ci->config->item('OCU_themes');
-				
-				foreach ($themes as $theme => $values)
+			// if $output is empty, no view was overriden, so go for the default
+			if (empty($output))
+			{		
+				self::$ci->load->_ci_view_path = self::$orig_view_path;
+		
+				if (self::$parse_views === true)
 				{
-					// If the agent is found anywhere inside the values,
-					// Then we've found our theme to use.
-					if (in_array($agent, $values) === TRUE)
-					{
-						$this->active_theme = $theme . '/';						
-						// Get out of here.
-						break;
-					}
+					self::$ci->parser->parse($view, $data);
+				}
+				else 
+				{
+					self::$ci->load->view($view, $data);
 				}
 			}
-			
 		}
 		
-		// If we still don't have a theme, set it to the default.
-		if (empty($this->active_theme) && $this->ci->config->item('OCU_use_mobile_themes'))
-		{
-			$this->active_theme = $this->default_theme . '/';
-		}		
+		// Put our ci view path back to normal
+		self::$ci->load->_ci_view_path = self::$orig_view_path;
+		unset($theme, $orig_view_path);
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
 	
-	/**
-	 * Adjusts the name passed based on the current theme (if any)
-	 * 
-	 * @access private
-	 * @return void
-	 */
-	private function _check_view($name='', $use_default=FALSE) 
-	{
-		if (!empty($name))
-		{
-			// Is there a theme assigned? If we're using themes, 
-			// it should already be set by the time we get here.				
-			return ($use_default === TRUE) ? $this->default_theme . '/' . $name : $this->active_theme . $name;
-		}
-		
-		return $name;
-	}
-	
-	//---------------------------------------------------------------
-	
-	/**
-	 * Handles the actual rendering of a view, by checking
-	 * for theme features and parsing methods.
+	/** 
+	 * find_file method
 	 *
-	 * Used by the yield and block methods.
+	 * Searches through the themes to attempt to find a file location.
 	 *
-	 * @access	private
-	 * @return	boolean
+	 * @param	string	$view		The name of the view to find.
+	 * @param	array	$data		An array of key/value pairs to pass to the views.
+	 * @param	string	$theme		The name of the active theme.
+	 * @param	string	$output		The output variable (passed by reference)
+	 * @return	string				The content of the file, if found, else empty.
 	 */
-	private function _render_view($view_name='', $cache_me=false, $data=null)
+	private function find_file($view=null, $data=null, $theme=null, &$output) 
 	{
-	
-		if (empty($view_name))
+		if (empty($view))
 		{
-			show_error('[Ocular] No view to render.');
 			return false;
 		}
-				
-		$content = '';
 		
-		if (!is_array($data))
-		{
-			$data = $this->data;
-		}
+		$output = '';
 		
-		if ($cache_me && !$this->is_ajax())
-		{
-			// To discourage conflicts, use the view_name and the current uri
-			// As the cache_id.
-			$this->cache_id = md5($view_name . $this->ci->uri->uri_string);
+		foreach (self::$theme_paths as $path)
+		{				
+			$path = self::$site_path . $path .'/'. $theme;
+		
+			if (self::$debug) { echo "Looking for view: <b>{$path}{$view}.php.</b><br/>"; }
+		
+			// Does the file exist
+			if (is_file($path . $view .'.php'))
+			{	
+				// Set CI's view path to see the theme folder
+				self::$ci->load->_ci_view_path = $path;
 			
-			if ($this->is_cached())
-			{
-				$content = $this->get_cache();
-			}
-		}
-	
-		// Start by checking if there's a theme available
-		if (empty($content) && !empty($this->active_theme))
-		{
-			// A theme has been specified. First, try to locate the file under
-			// the active_theme. If that doesn't work, fall back to the default.
-			if ($this->use_ci_parser === TRUE) 
-			{
-				$this->ci->load->library('parser');
-				$content = $this->ci->parser->parse($this->_check_view($view_name), $data, true);
-			} else 
-			{
-				$content = $this->ci->load->view($this->_check_view($view_name), $data, true);
-			}
-
-
-			if (empty($content))
-			{
-				// Oops. Not found in the active_theme. Try the default.
-				$content = $this->ci->load->view($this->_check_view($view_name, true), $data, true);
-			}
-		} else if (empty($content) && empty($this->active_theme))
-		{
-			if ($this->use_ci_parser === TRUE)
-			{
-				$this->ci->load->library('parser');
-				$content = $this->ci->parser->parse($view_name, $data, true);
-			} else 
-			{
-				$content = $this->ci->load->view($view_name, $data, true);
-			}
-		}
-		
-		
-		if (empty($content))
-		{
-			//ob_clean();
-			show_404($view_name);
-			return false;
-		}
-		
-		// Should we cache it? 
-		if ($cache_me && !$this->is_ajax() && !$this->is_cached())
-		{
-			$this->write_cache($content);
-		} 
-		
-		return $content;
-	}
-		
-	//---------------------------------------------------------------
-	
-	private function _check_layout($name='', $use_default=FALSE) 
-	{	
-		if (!empty($name))
-		{
-			// see if it includes the 'layout' folder
-			if (strpos($name, 'layouts') === FALSE)
-			{
-				$name = $this->ci->config->item('OCU_layout_folder') . $name;
-			}
-		
-			// Is there a theme assigned? If we're using themes,
-			// if should already be set by the time we're here.
-			if (!empty($this->active_theme))
-			{
-				return ($use_default === TRUE) ? $this->default_theme . '/' . $name : $this->active_theme . $name;
-			}
+				// Grab the output of the view.
+				if (self::$parse_views === true)
+				{
+					$output = self::$ci->parser->parse($view, $data, true);
+				} else 
+				{
+					$output = self::$ci->load->_ci_load(array('_ci_view' => $view, '_ci_vars' => self::$ci->load->_ci_object_to_array($data), '_ci_return' => true));
+					break;
+				}
+			} 
 		}
 	}
 	
-	//---------------------------------------------------------------
+	//--------------------------------------------------------------------
 	
-	//---------------------------------------------------------------
-	// CACHE FUNCTIONS
-	//---------------------------------------------------------------
 	
-	/**
-	 *	Checks to see if a file is cached, and stores the result
-	 * to save on processing later.
-	 */
-	private function is_cached($type='view') 
-	{ 
-		// If it's already cached, get out of here...
-		if (array_key_exists($this->cache_id, $this->cached) &&
-			$this->cached[$this->cache_id] == true) 
-		{
-			return true;
-		}
-		
-		// Nothing to do if there's no cache_id to work with. 
-		if (!$this->cache_id) 
-		{ 
-			return false;
-		} 
-	
-		$this->cached[$this->cache_id] = false;
-		
-		$cache_file = $this->cache_path . $this->cache_id .'.html';
-		
-		// Cache file exists?
-		if (!is_file($cache_file)) return false;
-		
-		// Can we get the time of the file?
-		if (!($mtime = filemtime($cache_file))) return false;
-		
-		// Has the cache expired? 
-		$newtime = $type=='view' ? $this->cache_view_expires : $this->cache_layout_expires;
-		
-		if (($mtime + $newtime) < time())
-		{	
-			@unlink($cache_file);
-			return false;
-		}
-		else 
-		{	
-			// Cache the results of this is_cached() call. Why? so
-			// we don't have to double the overhead for each view.
-			// If we didn't cache, it would be hitting the file system
-			// twice as much (file_exists() && filemtime() [twice each])
-			$this->cached[$this->cache_id] = true;
-			return true;
-		}
-	}
-	
-	//---------------------------------------------------------------
-	
-	private function get_cache() 
-	{
-		$cache_file = $this->cache_path . $this->cache_id .'.html';
-		
-		if (!function_exists('read_file'))
-		{
-			$this->ci->load->helper('file');
-		}
-		
-		return read_file($cache_file);
-	}
-	
-	//---------------------------------------------------------------
-	
-	private function write_cache($content=null) 
-	{
-		if (empty($content)) return;
-		
-		if (!function_exists('write_file'))
-		{
-			$this->ci->load->helper('file');
-		}
-		
-		write_file($this->cache_path . $this->cache_id .'.html', $content);
-	}
-	
-	//---------------------------------------------------------------
-
 }
 
-// END of Template class
+// End of Template Class
 
+//--------------------------------------------------------------------
+
+function themed_view($view=null, $data=null)
+{
+	if (empty($view)) return '';
+	
+	$ci =& get_instance();
+	
+	$output ='';
+	Template::load_view($view, $data, null, true, $output);
+	return $output;
+}
+
+//--------------------------------------------------------------------
 
 function check_menu($item='')
 {
@@ -865,7 +742,7 @@ function check_menu($item='')
 	return '';
 }
 
-//---------------------------------------------------------------
+//--------------------------------------------------------------------
 
 function check_sub_menu($item='')
 {
@@ -879,29 +756,7 @@ function check_sub_menu($item='')
 	return '';
 }
 
-//---------------------------------------------------------------
-
-/**
- * Renders a view based on current theme.
- *
- * @since 2.13
- */
-function themed_view($view=null, $data=array()) 
-{
-	if (empty($view) || !is_string($view))
-	{
-		return;
-	}
-	
-	$ci =& get_instance();
-	
-	// Load the data so it's available...
-	$ci->load->vars($data);
-	
-	return $ci->template->render_view($view);
-}
-
-//---------------------------------------------------------------
+//--------------------------------------------------------------------
 
 /**
  * Will create a breadcrumb from either the uri->segments or
@@ -913,7 +768,7 @@ function breadcrumb($my_segments=null)
 {
 	$ci =& get_instance();
 	
-	if (!class_exists($CI_URI))
+	if (!class_exists('CI_URI'))
 	{
 		$ci->load->library('uri');
 	}
@@ -945,7 +800,7 @@ function breadcrumb($my_segments=null)
 				echo str_replace('_', ' ', $segment);
 			} else 
 			{
-				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($segment)) .'</a>'. $ci->config->item('OCU_breadcrumb_symbol');
+				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($segment)) .'</a>'. $ci->config->item('template.breadcrumb_symbol');
 			}
 		}
 	} else
@@ -961,7 +816,7 @@ function breadcrumb($my_segments=null)
 				echo str_replace('_', ' ', $title);
 			} else 
 			{
-				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($title)) .'</a>'. $ci->config->item('OCU_breadcrumb_symbol');
+				echo '<a href="'. $url .'">'. str_replace('_', ' ', strtolower($title)) .'</a>'. $ci->config->item('template.breadcrumb_symbol');
 			}
 		}
 	}
@@ -969,5 +824,5 @@ function breadcrumb($my_segments=null)
 
 //---------------------------------------------------------------
 
-/* End of file Template.php */
-/* Location: ./application/libraries/Template.php */
+/* End of file template.php */
+/* Location: ./application/libraries/template.php */

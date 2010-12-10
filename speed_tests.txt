@@ -15,5 +15,12 @@ ReRun Baseline					136			578
 Removed language files			109			459				20
 (Autoload test)					111			471				18
 
+3.0 alpha Tests
+
+Name							RPS			RPS(w/xcache)	% slower
+---------------------------------------------------------------------
+ReRun Baseline					106			521
+Controller Load					 98			399				8/22
+
 
 NOTE: All tests performed on an Intel iMac (2Ghz Core Duo) with 3GB ram, running under MAMP. Zend Optimizer is off. Used Apache Bench with the command: ab -n 50 -c 10 http://ocular.local/. Each test was run 5 times consecutively and the results were averaged. The only view being displayed was the welcome page. Each Batch of tests was run on a different day, but a new baseline was run each time to give a relative score. Average speed reduction was calculated based on the xcache results.
