@@ -20,6 +20,15 @@ class Template {
 	public $ci;
 	
 	/**
+	 * Should we automatically call render post-controller?
+	 * Requires the post_controller hook.
+	 * Default is true.
+	 *
+	 * @var bool
+	 */
+	public $autorender = true;
+	
+	/**
 	 * The view to load. Normally not set unless
 	 * you need to bypass the automagic.
 	 * 
@@ -396,19 +405,24 @@ class Template {
 	
 	/**
 	 * Makes it easy to save information to be rendered within the views.
+	 * First param can be string or associative (key=>value) array.  
+	 * If it's an array, second param is ignored, and each key will 
+	 * be set with its corresponding value.
+	 * 
+	 * Second parameter can be of any type.
 	 * 
 	 * @access public
-	 * @param string $name. (default: '')
-	 * @param string $value. (default: '')
+	 * @param string|array $name. (default: '')
+	 * @param mixed $value. (default: '')
 	 * @return void
 	 */
-	public function set($var_name='', $value='') 
+	public function set($var_name = '', $value = '') 
 	{
 		$this->_mark('Template_Set_start');
 		
 		// Added by dkenzik
 	    // 20101001
-	    // Easier migration when $data is scaterred all over your project
+	    // Easier migration when $data is scattered all over your project
 	    //
 	    if(is_array($var_name) && $value=='')
 	    {
@@ -423,6 +437,35 @@ class Template {
 	    }
 		
 		$this->_mark('Template_Set_end');
+	}
+	
+	//---------------------------------------------------------------
+	
+	/**
+	 * Access saved information to be rendered within the views.
+	 * If first parameter is empty, return all view data ($this->data).
+	 * If first param is string and the view variable does not exist, 
+	 *  second param is returned, if any.
+	 * 
+	 * @access public
+	 * @param string $name. (default: '')
+	 * @param mixed $default value. (default: '')
+	 * @return void
+	 */
+	public function get_data($var_name = '', $default_value = '') 
+	{		
+		if(empty($var_name))
+		{
+			return $this->data;
+		}
+		elseif(isset($this->data[$var_name]))
+		{
+			return $this->data[$var_name];
+		}
+		else
+		{
+			return $default_value;
+		}
 	}
 	
 	//---------------------------------------------------------------
