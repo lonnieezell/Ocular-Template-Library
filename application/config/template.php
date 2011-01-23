@@ -1,16 +1,5 @@
 <?php if (!defined('BASEPATH')) exit('No direct script access allowed');
-/**
- * Template Class
- *
- * The Template class makes the creation of consistently themed web pages across your
- * entire site simple and as automatic as possible.
- * 
- * @author Lonnie Ezell
- * @license http://creativecommons.org/licenses/by-sa/3.0/
- * @package Ocular Layout Library
- * @version 3.0a
- */
- 
+
 /*
 |--------------------------------------------------------------------
 | SITE PATH
@@ -20,7 +9,7 @@
 | FCPATH. 
 |
 */
-$config['template.site_path']	= FCPATH;
+$config['template.site_path']	= APPPATH;
 
 /*
 |---------------------------------------------------------------------
@@ -30,7 +19,7 @@ $config['template.site_path']	= FCPATH;
 | one folder path at all times, to serve as the fall-back for when
 | a theme isn't found. Paths are relative to the FCPATH.
 */
-$config['template.theme_paths'] = array( 'themes' );
+$config['template.theme_paths'] = array('themes');
 
 /*
 |--------------------------------------------------------------------
@@ -42,7 +31,7 @@ $config['template.theme_paths'] = array( 'themes' );
 | NOTE: do not include an ending ".php" extension.
 |
 */
-$config['template.default_layout'] = "application";
+$config['template.default_layout'] = "index";
 
 /*
 |--------------------------------------------------------------------
@@ -56,6 +45,22 @@ $config['template.default_layout'] = "application";
 */
 $config['template.ajax_layout'] = 'ajax';
 
+/*
+|--------------------------------------------------------------------
+| USE THEMES?
+|--------------------------------------------------------------------
+| When set to TRUE, Ocular will check the user agent during the 
+| render process, and check the UA against the template.themes (below),
+| allowing you to create mobile versions of your site, and version
+| targetted specifically at a single type of phone (ie, Blackberry or
+| iPhone).
+|
+| Note, that, when rendering, if the file doesn't exist in the 
+| targetted theme, Ocular then checks the default site for the same file.
+|
+*/
+$config['template.use_mobile_themes'] = FALSE;
+
 
 /*
 |--------------------------------------------------------------------
@@ -66,15 +71,6 @@ $config['template.ajax_layout'] = 'ajax';
 |
 */
 $config['template.default_theme'] = 'default/';
-
-/*
-|--------------------------------------------------------------------
-| PARSE VIEWS?
-|--------------------------------------------------------------------
-| Whether or not views should be run through CodeIgniter's parser.
-|
-*/
-$config['template.parse_views'] = false;
 
 /*
 |--------------------------------------------------------------------

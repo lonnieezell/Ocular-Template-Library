@@ -10,9 +10,16 @@
  * @package Ocular Layout Library
  * @version 3.0a
  */
+ 
+/*
+	CHANGES: 
+		- Modified get() method to also return class methods, if they exist.
+		- Added a set_view method since setting it as a public class member was 
+			a) wrong and b) not working with the static class.
+*/
 class Template {
 
-	private static $debug = true;
+	public static $debug = false;
 
 	/**
 	 * Stores the name of the active theme (folder)
@@ -41,7 +48,16 @@ class Template {
 	 * @var mixed
 	 * @access public
 	 */
-	public static $current_view;
+	protected static $current_view;
+	
+	/**
+	 * The default template to render if none is
+	 * specified through the view's extend feature.
+	 *
+	 * @var	string
+	 * @access protected
+	 */
+	protected static $default_layout;
 	
 	/**
 	 * The layout to render the views into.
@@ -49,7 +65,7 @@ class Template {
 	 * @var mixed
 	 * @access public
 	 */
-	public static $layout;
+	public static $layout = 'index';
 	
 	/**
 	 * parse_views
@@ -87,6 +103,16 @@ class Template {
 	protected static $blocks = array();
 	
 	/**
+	 * An array/stack of block names. Used by the 
+	 * rendering engine to allow nested blocks to be
+	 * rendered by Ocular.
+	 *
+	 * @var	array
+	 * @access protected
+	 */
+	protected static $current_blocks = array();
+	
+	/**
 	 * Holds a simple array to store the status Message
 	 * that gets displayed using the message() function.
 	 *
@@ -120,6 +146,16 @@ class Template {
 	 * @access private
 	 */
 	private static $ci;
+	
+	/**
+	 * An array of hook points and the functions
+	 * to call when they're executed.
+	 *
+	 * Currently only supports post_render.
+	 */
+	private static $callbacks	= array(
+		'post_render'	=> array()
+	);
 
 	//--------------------------------------------------------------------
 
@@ -160,7 +196,7 @@ class Template {
 		// Store our settings
 		self::$site_path 		= self::$ci->config->item('template.site_path');
 		self::$theme_paths 		= self::$ci->config->item('template.theme_paths');
-		self::$layout 			= self::$ci->config->item('template.default_layout');
+		self::$default_layout	= self::$ci->config->item('template.default_layout');
 		self::$default_theme 	= self::$ci->config->item('template.default_theme');
 		self::$parse_views		= self::$ci->config->item('template.parse_views');
 		
@@ -176,43 +212,58 @@ class Template {
 	/**
 	 * render function.
 	 *
-	 * Renders out the specified layout, which starts the process
-	 * of rendering the page content. Also determines the correct
-	 * view to use based on the current controller/method.
+	 * Builds the page from the correct view and layouts. It starts by checking for
+	 * the correct view in the current theme, then the default theme, and then in the
+	 * views folder under a folder/file structure matching current controller/method names.
+	 *
+	 * Once the view is found and rendered, it determines the correct layout to used. This
+	 * is determined in the following order: 
+	 *		- If extend() is called from the view, that layout is used, otherwise...
+	 * 		- A layout with the name of the current controller is used, else...
+	 *		- The default layout is used.
+	 *		- Note that layouts in the current theme override layouts in the default theme,
+	 *		  which means that minimal overridden themes are needed to modify a parent theme.
 	 * 
 	 * @access public
-	 * @param 	string 	$layout. (default: '')
 	 * @return void
 	 */
-	public static function render($layout=null) 
-	{
-		$output = '';
-	
-		// We need to know which layout to render
-		$layout = empty($layout) ? self::$layout : $layout;
-
-		// Is it in an AJAX call? If so, override the layout
-		/*if ($this->is_ajax())
-		{
-			$layout = self::$ci->config->item('template.ajax_layout');
-			self::$ci->output->set_header("Cache-Control: no-store, no-cache, must-revalidate");
-			self::$ci->output->set_header("Cache-Control: post-check=0, pre-check=0");
-			self::$ci->output->set_header("Pragma: no-cache"); 
-		}*/
+	public static function render() 
+	{	
+		// Start output buffering
+		ob_start();
 		
-		// Grab our current view name, based on controller/method
-		// which routes to views/controller/method.
-		if (empty(self::$current_view))
-		{		
-			self::$current_view = self::$ci->router->class . '/' . self::$ci->router->method;
+		/*
+			Displays our current view. While the view is rendering, it can set the layout
+			to use through the extend() method, and can use begin() and end() methods to 
+			setup/override blocks.
+		*/
+		self::yield();
+		
+		// Capture our view's output
+		$output = ob_get_clean();
+
+		/*
+			It's now time to render the layout. If the view extended a specific layout, 
+			then self::$layout will already be set. Otherwise, the load_view() method will
+			search for a view matching the current controller in the current and default
+			themes. If that file doesn't exist, then the default layout will be used.
+		*/
+		if (self::$layout)
+		{
+			$layout = self::$layout;
+			//self::$layout = '';
+
+			$output = self::load_view($layout, self::$data, self::$ci->router->class, true);
+			
+			unset($layout);
 		}
 		
-		//
-		// Time to render the layout
-		//
-		self::load_view($layout, self::$data, self::$ci->router->class, true, $output);
-		
-		if (empty($output)) { show_error('Unable to find theme layout: '. $layout); }
+		if (!empty(self::$callbacks['post_render']))
+		{
+			list($class, $method) = self::$callbacks['post_render'];
+			
+			self::$ci->$class->$method($output);
+		}
 		
 		global $OUT;
 		$OUT->set_output($output); 
@@ -229,126 +280,116 @@ class Template {
 	 * @return void
 	 */
 	public static function yield() 
-	{ 	
-		$output = '';
-		
-		self::load_view(self::$current_view, null, self::$ci->router->class .'/'. self::$ci->router->method, false, $output);
-		
-		return $output;
+	{ 			
+		// Grab our current view name, based on controller/method
+		// which routes to views/controller/method.
+		if (empty(self::$current_view))
+		{		
+			self::$current_view = self::$ci->router->class . '/' . self::$ci->router->method;
+		}
+	
+		if (self::$debug) { echo '[Yield] Current View = '. self::$current_view; }
+ 		
+		echo self::load_view(self::$current_view, self::$data, self::$ci->router->class .'/'. self::$ci->router->method, false);
 	}
 	
 	//--------------------------------------------------------------------
 	
-	/**
-	 * Stores the block named $name in the blocks array for later rendering.
-	 * The $current_view variable is the name of an existing view. If it is empty,
-	 * your script should still function as normal.
-	 * 
-	 * @access public
-	 * @param string $name. (default: '')
-	 * @param string $view. (default: '')
-	 * @return void
-	 */
-	public static function set_block($block_name='', $view_name='') 
-	{		
-		if (!empty($block_name))
-		{
-			self::$blocks[$block_name] = $view_name;
-		} 
-		
-	}
-	
+	//--------------------------------------------------------------------
+	// !TEMPLATE INHERITANCE
 	//--------------------------------------------------------------------
 	
 	/**
-	 * Renders a "block" to the view.
+	 * extend() method
 	 *
-	 * A block is a partial view contained in a view file in the 
-	 * application/views folder. It can be used for sidebars,
-	 * headers, footers, or any other recurring element within
-	 * a site. It is recommended to set a default when calling
-	 * this function within a layout. The default will be rendered
-	 * if no methods override the view (using the set_block() method).
-	 * 
-	 * @access public
-	 * @param string $name. (default: '')
-	 * @param string $default_view. (default: '')
-	 * @return void
+	 * Sets the layout that is used to render the content into. 
+	 *
+	 * @param	string	$name	The name of the layout file (NO extension!)
+	 * @return	void
 	 */
-	public static function block($block_name='', $default_view='', $data=array(), $themed=false)
-	{		
-		if (empty($block_name)) 
+	public function extend($name=null) 
+	{
+		if (empty($name))
 		{
-			log_message('debug', '[Template] No block name provided.');
-			return;
+			self::$layout = self::$default_layout;
 		}
-
-		// If a block has been set previously use that
-		if (isset(self::$blocks[$block_name]))
-		{
-			$block_name = self::$blocks[$block_name];
-		} 
-		// Otherwise, use the default view.
 		else 
 		{
-			$block_name = $default_view;
+			self::$layout = $name;
 		}
-
-		if (self::$debug) { echo "Looking for block: <b>{$block_name}</b>."; }
-
-		if (empty($block_name)) 
+	}
+	
+	//--------------------------------------------------------------------
+	
+	public function begin($block_name=null) 
+	{
+		if (is_null($block_name))
 		{
-			log_message('debug', 'Ocular was unable to find the default block: ' . $default_view);
 			return;
 		}
 		
-		$output = '';
-		self::load_view($block_name, $data, false, true, $output);
-		return $output;
+		// Start buffering for this block only.
+		ob_start();
+		
+		// Store the current_blocks name so that the end() method will
+		// know where we are.
+		array_unshift(self::$current_blocks, $block_name);
 	}
 	
 	//--------------------------------------------------------------------
 	
 	/**
-	 *	IS THIS REALLY STILL NEEDED?
+	 * end() method
+	 *
+	 * Signals the end of rendering of the current block's contents. 
+	 * The information is stored in the self::$blocks array by name, 
+	 * and inserted into the layout furing the final phase of rendering.
+	 * If this is the master layout, then the default content is rendered.
+	 *
 	 */
-	public static function theme_block($block_name='', $default_view='', $data=null) 
+	public function end() 
 	{
-		if (empty($block_name)) 
-		{
-			log_message('debug', '[Ocular] No block name provided.');
-			return;
-		}
+		$current_block = array_shift(self::$current_blocks);
 		
-		$output = '';
-
-		// If a block has been set previously use that
-		if (array_key_exists($block_name, self::$blocks))
-		{
-			$block_name = self::$blocks[$block_name];
-		} 
-		// Otherwise, use the default view.
-		else 
-		{
-			$block_name = $default_view;
-		}
-
-		if (empty($block_name)) 
-		{
-			log_message('debug', 'Ocular was unable to find the default block: ' . $default_view);
-			return;
-		}
-		
-		// If we haven't passed custom data to the function, include global data.
-		$data = empty($data) ? self::$data : $data;
 	
-		self::load_view($block_name, $data, null, true, $output);
-		
-		if (empty($output)) { show_error('Unable to find theme layout: '. $block_name); }
-		
-		return $output;
+		/*
+			If the self::$layout var has a value, then this is a sub-template
+			(or standard view) that is overriding the default block contents.
+		*/
+		if (!empty(self::$layout))
+		{ 
+			// Grab the buffer contents and clean up our $current_blocks array;
+			self::$blocks[$current_block] = ob_get_clean();
+		}	
+		/*
+			Since the self::$layout value is empty, we know this is a master
+			layout and we just need to render the value of the block, not save it.
+		*/
+		else 
+		{ 
+			// Use the stored block, if it exists...
+			if (isset(self::$blocks[$current_block]))
+			{
+				// Drop the current content
+				ob_end_clean();
+				// Display our stored block instead.
+				echo self::$blocks[$current_block];
+			}
+			// Otherwise, use the default block content
+			else 
+			{
+				echo ob_get_clean();
+			}
+		}
+
+		unset($current_block);
 	}
 	
+	//--------------------------------------------------------------------
+	
+	
+	//--------------------------------------------------------------------
+	// !THEME SPECIFIC METHODS
 	//--------------------------------------------------------------------
 	
 	/**
@@ -455,6 +496,48 @@ class Template {
 	//--------------------------------------------------------------------
 	
 	/**
+	 * Returns the url to the active theme.
+	 *
+	 * @return	string	The full url to the active theme folder.
+	 */
+	public function theme_url($file='') 
+	{
+		$folder = '';
+		
+		foreach (self::$theme_paths as $path)
+		{
+			if (is_dir($path .'/'. self::$active_theme))
+			{
+				$folder = $path;
+				break;
+			}
+		}
+		
+		return site_url($folder .'/'. self::$active_theme . $file);
+	}
+	
+	//--------------------------------------------------------------------
+	
+	/**
+	 * Set the current view to render.
+	 * 
+	 * @param	string	$view	The name of the view file to render as content.
+	 * @return	void
+	 */
+	public function set_view($view=null) 
+	{
+		if (empty($view) || !is_string($view))
+		{
+			return;
+		}
+		
+		self::$current_view = $view;
+	}
+	
+	//--------------------------------------------------------------------
+	
+	
+	/**
 	 * Makes it easy to save information to be rendered within the views.
 	 * 
 	 * @access public
@@ -496,7 +579,12 @@ class Template {
 			return false;
 		}
 		
-		if (isset(self::$data[$var_name]))
+		// First, is it a class property? 
+		if (isset(self::$$var_name))
+		{
+			return self::$$var_name;
+		}
+		else if (isset(self::$data[$var_name]))
 		{
 			return self::$data[$var_name];
 		}
@@ -615,8 +703,10 @@ class Template {
 	 * @param	bool	$is_themed	Whether it should check in the theme folder first.
 	 * @return	string	$output		The results of loading the view
 	 */
-	public static function load_view($view=null, $data=null, $override='', $is_themed=true, &$output) 
-	{
+	public static function load_view($view=null, $data=null, $override='', $is_themed=true) 
+	{ 
+		$output = '';
+	
 		if (empty($view))	return '';
 		
 		// If no active theme is present, use the default theme.
@@ -625,12 +715,12 @@ class Template {
 		if ($is_themed)
 		{	
 			// First check for the overriden file...
-			self::find_file($override, $data, $theme, $output);
+			$output = self::find_file($override, $data, $theme);
 			
 			// If we didn't find it, try the standard view
 			if (empty($output))
 			{
-				self::find_file($view, $data, $theme, $output);
+				$output = self::find_file($view, $data, $theme);
 			}
 		} 
 		
@@ -638,20 +728,20 @@ class Template {
 		else 
 		{
 			// First check within our themes...
-			self::find_file($view, $data, $theme, $output);
+			$output = self::find_file($view, $data, $theme);
 			
 			// if $output is empty, no view was overriden, so go for the default
 			if (empty($output))
-			{		
+			{
 				self::$ci->load->_ci_view_path = self::$orig_view_path;
 		
 				if (self::$parse_views === true)
 				{
-					self::$ci->parser->parse($view, $data);
+					$output = self::$ci->parser->parse($view, $data, true);
 				}
 				else 
 				{
-					self::$ci->load->view($view, $data);
+					$output = self::$ci->load->view($view, $data, true);
 				}
 			}
 		}
@@ -659,8 +749,33 @@ class Template {
 		// Put our ci view path back to normal
 		self::$ci->load->_ci_view_path = self::$orig_view_path;
 		unset($theme, $orig_view_path);
+		
+		// return our output
+		return $output;
 	}
 	
+	//--------------------------------------------------------------------
+	
+	/**
+	 * set_callback() method
+	 *
+	 * Registers a callback function to be run at certain points of the 
+	 * scripts execution. Currently, the only one implemented is post_render();
+	 *
+	 * @param	string	$callback_name		The name of the callback to hook in to.
+	 * @param	string	$callback_method	The method to call during that hook's execution.
+	 * @return	void
+	 */
+	public function set_callback($callback_name='post_render', $class='', $method='') 
+	{	
+		self::$callbacks[$callback_name] = array($class, $method);
+	}
+	
+	//--------------------------------------------------------------------
+	
+	
+	//--------------------------------------------------------------------
+	// !PRIVATE METHODS
 	//--------------------------------------------------------------------
 	
 	/** 
@@ -671,10 +786,9 @@ class Template {
 	 * @param	string	$view		The name of the view to find.
 	 * @param	array	$data		An array of key/value pairs to pass to the views.
 	 * @param	string	$theme		The name of the active theme.
-	 * @param	string	$output		The output variable (passed by reference)
 	 * @return	string				The content of the file, if found, else empty.
 	 */
-	private function find_file($view=null, $data=null, $theme=null, &$output) 
+	private function find_file($view=null, $data=null, $theme=null) 
 	{
 		if (empty($view))
 		{
@@ -685,15 +799,15 @@ class Template {
 		
 		foreach (self::$theme_paths as $path)
 		{				
-			$path = self::$site_path . $path .'/'. $theme;
+			$full_path = self::$site_path . $path .'/'. $theme;
 		
-			if (self::$debug) { echo "Looking for view: <b>{$path}{$view}.php.</b><br/>"; }
+			if (self::$debug) { echo "Looking for view: <b>{$full_path}{$view}.php.</b><br/>"; }
 		
 			// Does the file exist
-			if (is_file($path . $view .'.php'))
+			if (is_file($full_path . $view .'.php'))
 			{	
 				// Set CI's view path to see the theme folder
-				self::$ci->load->_ci_view_path = $path;
+				self::$ci->load->_ci_view_path = $full_path;
 			
 				// Grab the output of the view.
 				if (self::$parse_views === true)
@@ -706,10 +820,11 @@ class Template {
 				}
 			} 
 		}
+		
+		return $output;
 	}
 	
 	//--------------------------------------------------------------------
-	
 	
 }
 
@@ -718,19 +833,16 @@ class Template {
 //--------------------------------------------------------------------
 
 function themed_view($view=null, $data=null)
-{
+{ 
 	if (empty($view)) return '';
 	
-	$ci =& get_instance();
-	
-	$output ='';
-	Template::load_view($view, $data, null, true, $output);
+	$output = Template::load_view($view, $data, null, true);
 	return $output;
 }
 
 //--------------------------------------------------------------------
 
-function check_menu($item='')
+function check_class($item='')
 {
 	$ci =& get_instance();
 
@@ -744,7 +856,7 @@ function check_menu($item='')
 
 //--------------------------------------------------------------------
 
-function check_sub_menu($item='')
+function check_method($item='')
 {
 	$ci =& get_instance();
 
